@@ -14,7 +14,155 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      offers: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          discounted_price: number
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          items_left: number
+          original_price: number
+          pickup_end: string
+          pickup_start: string
+          quantity: number
+          restaurant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          discounted_price: number
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          items_left?: number
+          original_price: number
+          pickup_end: string
+          pickup_start: string
+          quantity?: number
+          restaurant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          discounted_price?: number
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          items_left?: number
+          original_price?: number
+          pickup_end?: string
+          pickup_start?: string
+          quantity?: number
+          restaurant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offers_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          role?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      restaurants: {
+        Row: {
+          address: string
+          business_id: string | null
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          name: string
+          opening_hours: Json | null
+          owner_id: string
+          phone: string | null
+          status: string
+          subscription_plan: string | null
+          subscription_start: string | null
+          trial_ends_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          business_id?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          name: string
+          opening_hours?: Json | null
+          owner_id: string
+          phone?: string | null
+          status?: string
+          subscription_plan?: string | null
+          subscription_start?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          business_id?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string
+          opening_hours?: Json | null
+          owner_id?: string
+          phone?: string | null
+          status?: string
+          subscription_plan?: string | null
+          subscription_start?: string | null
+          trial_ends_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
