@@ -1,22 +1,27 @@
 import { useState, useMemo } from "react";
-import { Search, MapPin, SlidersHorizontal } from "lucide-react";
+import { Search, MapPin, SlidersHorizontal, Loader2 } from "lucide-react";
 import CategoryFilter from "@/components/CategoryFilter";
 import OfferCard from "@/components/OfferCard";
 import OfferDetail from "@/components/OfferDetail";
-import { mockOffers, type Offer } from "@/data/mockOffers";
+import type { Offer } from "@/hooks/useOffers";
 import { useAllRestaurantRatings } from "@/hooks/useAllRestaurantRatings";
 
-const ExplorePage = () => {
+interface ExplorePageProps {
+  offers: Offer[];
+  loadingOffers: boolean;
+}
+
+const ExplorePage = ({ offers, loadingOffers }: ExplorePageProps) => {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
-  const [sortBy, setSortBy] = useState<"distance" | "price" | "rating">("distance");
+  const [sortBy, setSortBy] = useState<"price" | "rating">("price");
   const { ratings } = useAllRestaurantRatings();
 
   const filteredOffers = useMemo(() => {
     let results = selectedCategory === "all"
-      ? mockOffers
-      : mockOffers.filter((o) => o.category === selectedCategory);
+      ? offers
+      : offers.filter((o) => o.category === selectedCategory);
 
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -29,14 +34,11 @@ const ExplorePage = () => {
 
     return [...results].sort((a, b) => {
       if (sortBy === "price") return a.discountedPrice - b.discountedPrice;
-      if (sortBy === "rating") {
-        const rA = ratings[a.restaurantName]?.avg ?? a.rating;
-        const rB = ratings[b.restaurantName]?.avg ?? b.rating;
-        return rB - rA;
-      }
-      return parseFloat(a.distance) - parseFloat(b.distance);
+      const rA = ratings[a.restaurantName]?.avg ?? 0;
+      const rB = ratings[b.restaurantName]?.avg ?? 0;
+      return rB - rA;
     });
-  }, [selectedCategory, search, sortBy, ratings]);
+  }, [selectedCategory, search, sortBy, ratings, offers]);
 
   if (selectedOffer) {
     return <OfferDetail offer={selectedOffer} onBack={() => setSelectedOffer(null)} dynamicRating={ratings[selectedOffer.restaurantName]} />;
@@ -70,10 +72,9 @@ const ExplorePage = () => {
             <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as "distance" | "price" | "rating")}
+              onChange={(e) => setSortBy(e.target.value as "price" | "rating")}
               className="bg-transparent text-xs font-medium text-foreground focus:outline-none"
             >
-              <option value="distance">Distance</option>
               <option value="price">Prix</option>
               <option value="rating">Note</option>
             </select>
@@ -87,18 +88,24 @@ const ExplorePage = () => {
         <p className="mb-3 text-sm text-muted-foreground">
           {filteredOffers.length} résultat{filteredOffers.length > 1 ? "s" : ""}
         </p>
-        <div className="grid gap-4">
-          {filteredOffers.map((offer, i) => (
-            <OfferCard key={offer.id} offer={offer} onClick={setSelectedOffer} index={i} dynamicRating={ratings[offer.restaurantName]} />
-          ))}
-          {filteredOffers.length === 0 && (
-            <div className="py-12 text-center">
-              <p className="text-4xl">🔍</p>
-              <p className="mt-3 font-display text-lg font-semibold text-foreground">Aucun résultat</p>
-              <p className="mt-1 text-sm text-muted-foreground">Essayez de modifier vos filtres</p>
-            </div>
-          )}
-        </div>
+        {loadingOffers ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {filteredOffers.map((offer, i) => (
+              <OfferCard key={offer.id} offer={offer} onClick={setSelectedOffer} index={i} dynamicRating={ratings[offer.restaurantName]} />
+            ))}
+            {filteredOffers.length === 0 && (
+              <div className="py-12 text-center">
+                <p className="text-4xl">🔍</p>
+                <p className="mt-3 font-display text-lg font-semibold text-foreground">Aucun résultat</p>
+                <p className="mt-1 text-sm text-muted-foreground">Essayez de modifier vos filtres</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

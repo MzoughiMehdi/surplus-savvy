@@ -3,7 +3,7 @@ import { ArrowLeft, Clock, MapPin, Star, ShoppingBag, Loader2 } from "lucide-rea
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import type { Offer } from "@/data/mockOffers";
+import type { Offer } from "@/hooks/useOffers";
 
 interface OfferDetailProps {
   offer: Offer;
@@ -30,59 +30,14 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
     setReserving(true);
 
     try {
-      // 1. First create the reservation in DB
-      // Find a matching DB offer or create one
-      let dbOfferId: string;
-      let dbRestaurantId: string;
-
-      const { data: dbOffers } = await supabase
-        .from("offers")
-        .select("id, restaurant_id")
-        .eq("is_active", true)
-        .limit(1);
-
-      if (dbOffers && dbOffers.length > 0) {
-        dbOfferId = dbOffers[0].id;
-        dbRestaurantId = dbOffers[0].restaurant_id;
-      } else {
-        const { data: restaurants } = await supabase
-          .from("restaurants")
-          .select("id")
-          .eq("status", "approved")
-          .limit(1);
-
-        if (!restaurants || restaurants.length === 0) {
-          toast.error("Aucun restaurant disponible");
-          setReserving(false);
-          return;
-        }
-
-        const { data: newOffer, error: offerError } = await supabase.from("offers").insert({
-          restaurant_id: restaurants[0].id,
-          title: offer.title,
-          description: offer.description,
-          original_price: offer.originalPrice,
-          discounted_price: offer.discountedPrice,
-          quantity: offer.itemsLeft,
-          items_left: offer.itemsLeft,
-          pickup_start: offer.pickupStart,
-          pickup_end: offer.pickupEnd,
-          category: offer.category,
-        }).select().single();
-
-        if (offerError || !newOffer) {
-          toast.error("Erreur lors de la réservation");
-          setReserving(false);
-          return;
-        }
-        dbOfferId = newOffer.id;
-        dbRestaurantId = restaurants[0].id;
-      }
-
-      // Create reservation
+      // Create reservation using real DB offer id
       const { error: resError } = await supabase
         .from("reservations")
-        .insert({ user_id: user.id, offer_id: dbOfferId, restaurant_id: dbRestaurantId });
+        .insert({
+          user_id: user.id,
+          offer_id: offer.id,
+          restaurant_id: offer.restaurantId,
+        });
 
       if (resError) {
         toast.error(resError.message);
@@ -90,7 +45,7 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
         return;
       }
 
-      // 2. Then redirect to Stripe payment (same tab)
+      // Redirect to Stripe payment
       const { data: paymentData, error: paymentError } = await supabase.functions.invoke("create-payment", {
         body: {
           offerId: offer.id,
@@ -105,7 +60,6 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
         return;
       }
 
-      // Redirect to Stripe checkout on same tab — reservation already saved
       window.location.href = paymentData.url;
     } catch {
       toast.error("Erreur inattendue");
@@ -113,7 +67,6 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
 
     setReserving(false);
   };
-
 
   return (
     <div className="animate-fade-in-up min-h-screen bg-background pb-28">
@@ -141,15 +94,19 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
           <div>
             <h2 className="text-base font-semibold text-foreground">{offer.restaurantName}</h2>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <div className="flex items-center gap-0.5">
-                <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-                <span className="font-medium text-foreground">{dynamicRating?.avg ?? offer.rating}</span>
-              </div>
-              <span>({dynamicRating?.count ?? offer.reviewCount} avis)</span>
-              <span>·</span>
+              {(dynamicRating?.count ?? 0) > 0 && (
+                <>
+                  <div className="flex items-center gap-0.5">
+                    <Star className="h-3.5 w-3.5 fill-warning text-warning" />
+                    <span className="font-medium text-foreground">{dynamicRating?.avg}</span>
+                  </div>
+                  <span>({dynamicRating?.count} avis)</span>
+                  <span>·</span>
+                </>
+              )}
               <div className="flex items-center gap-0.5">
                 <MapPin className="h-3 w-3" />
-                {offer.distance}
+                {offer.restaurantAddress || "À proximité"}
               </div>
             </div>
           </div>
