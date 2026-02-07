@@ -1,12 +1,58 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState, useMemo } from "react";
+import HeroSection from "@/components/HeroSection";
+import CategoryFilter from "@/components/CategoryFilter";
+import OfferCard from "@/components/OfferCard";
+import OfferDetail from "@/components/OfferDetail";
+import BottomNav from "@/components/BottomNav";
+import ImpactBanner from "@/components/ImpactBanner";
+import { mockOffers, type Offer } from "@/data/mockOffers";
 
 const Index = () => {
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
+  const [activeTab, setActiveTab] = useState("home");
+
+  const filteredOffers = useMemo(
+    () =>
+      selectedCategory === "all"
+        ? mockOffers
+        : mockOffers.filter((o) => o.category === selectedCategory),
+    [selectedCategory]
+  );
+
+  if (selectedOffer) {
+    return <OfferDetail offer={selectedOffer} onBack={() => setSelectedOffer(null)} />;
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <div className="min-h-screen bg-background pb-24">
+      <HeroSection />
+      <ImpactBanner />
+      <CategoryFilter selected={selectedCategory} onSelect={setSelectedCategory} />
+
+      <div className="px-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-display text-xl font-bold text-foreground">
+            Available now
+          </h2>
+          <span className="text-sm font-medium text-muted-foreground">
+            {filteredOffers.length} offers
+          </span>
+        </div>
+
+        <div className="grid gap-4">
+          {filteredOffers.map((offer, i) => (
+            <OfferCard
+              key={offer.id}
+              offer={offer}
+              onClick={setSelectedOffer}
+              index={i}
+            />
+          ))}
+        </div>
       </div>
+
+      <BottomNav active={activeTab} onNavigate={setActiveTab} />
     </div>
   );
 };
