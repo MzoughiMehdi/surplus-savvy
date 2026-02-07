@@ -18,10 +18,18 @@ serve(async (req) => {
   }
 
   const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return new Response(JSON.stringify({ subscribed: false, error: "No authorization header" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
+  }
+
+  const token = authHeader.replace("Bearer ", "");
   const supabaseClient = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-    { global: { headers: { Authorization: authHeader ?? "" } } }
+    { global: { headers: { Authorization: authHeader } } }
   );
 
   try {
@@ -30,13 +38,15 @@ serve(async (req) => {
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
 
-    if (!authHeader) throw new Error("No authorization header");
-
-    const token = authHeader.replace("Bearer ", "");
     const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError) throw new Error(`Auth error: ${userError.message}`);
+    if (userError || !userData.user?.email) {
+      logStep("Auth failed", { error: userError?.message });
+      return new Response(JSON.stringify({ subscribed: false }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
     const user = userData.user;
-    if (!user?.email) throw new Error("User not authenticated");
 
     logStep("User authenticated", { email: user.email });
 
