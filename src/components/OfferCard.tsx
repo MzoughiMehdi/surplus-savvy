@@ -5,10 +5,13 @@ interface OfferCardProps {
   offer: Offer;
   onClick: (offer: Offer) => void;
   index: number;
+  dynamicRating?: { avg: number; count: number };
 }
 
-const OfferCard = ({ offer, onClick, index }: OfferCardProps) => {
+const OfferCard = ({ offer, onClick, index, dynamicRating }: OfferCardProps) => {
   const discount = Math.round((1 - offer.discountedPrice / offer.originalPrice) * 100);
+  const rating = dynamicRating?.avg ?? offer.rating;
+  const reviewCount = dynamicRating?.count ?? offer.reviewCount;
 
   return (
     <button
@@ -40,9 +43,10 @@ const OfferCard = ({ offer, onClick, index }: OfferCardProps) => {
               className="h-7 w-7 rounded-full object-cover"
             />
             <span className="text-xs font-medium text-muted-foreground">{offer.restaurantName}</span>
-            <div className="ml-auto flex items-center gap-0.5">
+            <div className="ml-auto flex items-center gap-1">
               <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-              <span className="text-xs font-semibold text-foreground">{offer.rating}</span>
+              <span className="text-xs font-semibold text-foreground">{rating}</span>
+              <span className="text-[10px] text-muted-foreground">({reviewCount})</span>
             </div>
           </div>
 

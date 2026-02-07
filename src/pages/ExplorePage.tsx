@@ -4,12 +4,14 @@ import CategoryFilter from "@/components/CategoryFilter";
 import OfferCard from "@/components/OfferCard";
 import OfferDetail from "@/components/OfferDetail";
 import { mockOffers, type Offer } from "@/data/mockOffers";
+import { useAllRestaurantRatings } from "@/hooks/useAllRestaurantRatings";
 
 const ExplorePage = () => {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [sortBy, setSortBy] = useState<"distance" | "price" | "rating">("distance");
+  const { ratings } = useAllRestaurantRatings();
 
   const filteredOffers = useMemo(() => {
     let results = selectedCategory === "all"
@@ -27,13 +29,17 @@ const ExplorePage = () => {
 
     return [...results].sort((a, b) => {
       if (sortBy === "price") return a.discountedPrice - b.discountedPrice;
-      if (sortBy === "rating") return b.rating - a.rating;
+      if (sortBy === "rating") {
+        const rA = ratings[a.restaurantName]?.avg ?? a.rating;
+        const rB = ratings[b.restaurantName]?.avg ?? b.rating;
+        return rB - rA;
+      }
       return parseFloat(a.distance) - parseFloat(b.distance);
     });
-  }, [selectedCategory, search, sortBy]);
+  }, [selectedCategory, search, sortBy, ratings]);
 
   if (selectedOffer) {
-    return <OfferDetail offer={selectedOffer} onBack={() => setSelectedOffer(null)} />;
+    return <OfferDetail offer={selectedOffer} onBack={() => setSelectedOffer(null)} dynamicRating={ratings[selectedOffer.restaurantName]} />;
   }
 
   return (
@@ -83,7 +89,7 @@ const ExplorePage = () => {
         </p>
         <div className="grid gap-4">
           {filteredOffers.map((offer, i) => (
-            <OfferCard key={offer.id} offer={offer} onClick={setSelectedOffer} index={i} />
+            <OfferCard key={offer.id} offer={offer} onClick={setSelectedOffer} index={i} dynamicRating={ratings[offer.restaurantName]} />
           ))}
           {filteredOffers.length === 0 && (
             <div className="py-12 text-center">

@@ -9,9 +9,10 @@ import ReservationConfirmation from "@/components/ReservationConfirmation";
 interface OfferDetailProps {
   offer: Offer;
   onBack: () => void;
+  dynamicRating?: { avg: number; count: number };
 }
 
-const OfferDetail = ({ offer, onBack }: OfferDetailProps) => {
+const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
   const { user } = useAuth();
   const [reserving, setReserving] = useState(false);
   const [reservation, setReservation] = useState<{
@@ -161,9 +162,9 @@ const OfferDetail = ({ offer, onBack }: OfferDetailProps) => {
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <div className="flex items-center gap-0.5">
                 <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-                <span className="font-medium text-foreground">{offer.rating}</span>
+                <span className="font-medium text-foreground">{dynamicRating?.avg ?? offer.rating}</span>
               </div>
-              <span>({offer.reviewCount} avis)</span>
+              <span>({dynamicRating?.count ?? offer.reviewCount} avis)</span>
               <span>·</span>
               <div className="flex items-center gap-0.5">
                 <MapPin className="h-3 w-3" />
