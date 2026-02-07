@@ -66,12 +66,13 @@ const Dashboard = () => {
 
   const fetchData = async () => {
     if (!user) return;
-    const { data: rest } = await supabase
+    const { data: restList } = await supabase
       .from("restaurants")
       .select("*")
       .eq("owner_id", user.id)
-      .maybeSingle();
+      .limit(1);
 
+    const rest = restList?.[0] ?? null;
     if (!rest) { navigate("/merchant-onboarding"); return; }
     setRestaurant(rest);
 

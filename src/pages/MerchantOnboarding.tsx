@@ -113,6 +113,19 @@ const MerchantOnboarding = () => {
 
     setLoading(true);
     try {
+      // Check if restaurant already exists for this user
+      const { data: existing } = await supabase
+        .from("restaurants")
+        .select("id")
+        .eq("owner_id", user.id)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        toast.success("Restaurant déjà enregistré !");
+        navigate("/dashboard");
+        return;
+      }
+
       // Update profile role
       await supabase
         .from("profiles")
