@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { ArrowLeft, Clock, MapPin, CheckCircle, XCircle, Package } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, CheckCircle, XCircle, Package, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import StarRating from "@/components/StarRating";
+import { useSubmitReview, useUserReviewForReservation } from "@/hooks/useReviews";
 
 interface ReservationConfirmationProps {
   pickupCode: string;
@@ -13,6 +15,8 @@ interface ReservationConfirmationProps {
   status: string;
   onBack: () => void;
   onCancel?: () => void;
+  reservationId?: string;
+  restaurantId?: string;
 }
 
 const ReservationConfirmation = ({
@@ -25,7 +29,12 @@ const ReservationConfirmation = ({
   status,
   onBack,
   onCancel,
+  reservationId,
+  restaurantId,
 }: ReservationConfirmationProps) => {
+  const { submitReview, submitting } = useSubmitReview();
+  const { review, loading: reviewLoading, setReview } = useUserReviewForReservation(reservationId);
+  const [pendingRating, setPendingRating] = useState(0);
   const qrValue = JSON.stringify({
     code: pickupCode,
     restaurant: restaurantName,
@@ -119,6 +128,37 @@ const ReservationConfirmation = ({
         >
           Annuler la réservation
         </Button>
+      )}
+
+      {status === "completed" && reservationId && restaurantId && !reviewLoading && (
+        <div className="mt-6 rounded-2xl bg-card p-5 shadow-sm text-center">
+          {review ? (
+            <>
+              <p className="text-sm text-muted-foreground mb-2">Votre note</p>
+              <StarRating value={review.rating} readonly size="lg" />
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-medium text-foreground mb-3">Comment était votre commande ?</p>
+              <div className="flex justify-center mb-3">
+                <StarRating value={pendingRating} onChange={setPendingRating} size="lg" />
+              </div>
+              {pendingRating > 0 && (
+                <Button
+                  onClick={async () => {
+                    const ok = await submitReview(reservationId, restaurantId, pendingRating);
+                    if (ok) setReview({ rating: pendingRating });
+                  }}
+                  disabled={submitting}
+                  className="w-full"
+                >
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Envoyer ma note
+                </Button>
+              )}
+            </>
+          )}
+        </div>
       )}
     </div>
   );
