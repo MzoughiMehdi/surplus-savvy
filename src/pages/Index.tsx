@@ -12,12 +12,14 @@ import FavoritesPage from "@/pages/FavoritesPage";
 import ProfilePage from "@/pages/ProfilePage";
 import OrdersPage from "@/pages/OrdersPage";
 import { mockOffers, type Offer } from "@/data/mockOffers";
+import { useAllRestaurantRatings } from "@/hooks/useAllRestaurantRatings";
 
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [activeTab, setActiveTab] = useState("home");
   const [showMap, setShowMap] = useState(false);
+  const { ratings } = useAllRestaurantRatings();
 
   const filteredOffers = useMemo(
     () =>
@@ -28,7 +30,7 @@ const Index = () => {
   );
 
   if (selectedOffer) {
-    return <OfferDetail offer={selectedOffer} onBack={() => setSelectedOffer(null)} />;
+    return <OfferDetail offer={selectedOffer} onBack={() => setSelectedOffer(null)} dynamicRating={ratings[selectedOffer.restaurantName]} />;
   }
 
   if (showMap) {
@@ -75,6 +77,7 @@ const Index = () => {
                     offer={offer}
                     onClick={setSelectedOffer}
                     index={i}
+                    dynamicRating={ratings[offer.restaurantName]}
                   />
                 ))}
               </div>
