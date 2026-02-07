@@ -13,24 +13,56 @@ import ProfilePage from "@/pages/ProfilePage";
 import OrdersPage from "@/pages/OrdersPage";
 import { useOffers, type Offer } from "@/hooks/useOffers";
 import { useAllRestaurantRatings } from "@/hooks/useAllRestaurantRatings";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [activeTab, setActiveTab] = useState("home");
   const [showMap, setShowMap] = useState(false);
-  const { offers, loading } = useOffers();
+  const { offers, loading, refetch } = useOffers();
   const { ratings } = useAllRestaurantRatings();
+  const { user } = useAuth();
 
-  // Handle Stripe payment return — navigate to orders tab
+  // Handle Stripe payment return — create reservation AFTER successful payment
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("payment") === "success") {
-      setActiveTab("orders");
+    const paymentStatus = params.get("payment");
+    const offerId = params.get("offer_id");
+    const restaurantId = params.get("restaurant_id");
+
+    if (paymentStatus === "success" && offerId && user) {
+      // Create reservation only after confirmed payment
+      const createReservation = async () => {
+        const { error } = await supabase
+          .from("reservations")
+          .insert({
+            user_id: user.id,
+            offer_id: offerId,
+            restaurant_id: restaurantId || "",
+          });
+
+        if (error) {
+          console.error("Error creating reservation:", error);
+          toast.error("Erreur lors de la création de la réservation");
+        } else {
+          toast.success("Paiement confirmé ! Votre réservation est prête.");
+          refetch(); // Refresh offers to update stock
+        }
+
+        setActiveTab("orders");
+        window.history.replaceState({}, "", window.location.pathname);
+      };
+
+      createReservation();
+    } else if (paymentStatus === "cancelled") {
+      toast.info("Paiement annulé");
       window.history.replaceState({}, "", window.location.pathname);
     }
-  }, []);
+  }, [user]);
 
   const filteredOffers = useMemo(
     () =>
