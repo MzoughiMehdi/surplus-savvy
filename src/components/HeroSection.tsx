@@ -1,5 +1,5 @@
 import heroImage from "@/assets/hero-food.jpg";
-import { MapPin } from "lucide-react";
+import { MapPin, ArrowRight } from "lucide-react";
 
 interface HeroSectionProps {
   onExplore: () => void;
@@ -7,34 +7,42 @@ interface HeroSectionProps {
 
 const HeroSection = ({ onExplore }: HeroSectionProps) => {
   return (
-    <section className="relative overflow-hidden rounded-b-[2rem]">
+    <section className="relative overflow-hidden">
       <div className="absolute inset-0">
         <img
           src={heroImage}
           alt="Nourriture fraîche sauvée du gaspillage"
-          className="h-full w-full object-cover"
+          className="h-full w-full object-cover scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-foreground/70 via-foreground/50 to-foreground/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-foreground/30 via-foreground/20 to-background" />
       </div>
 
-      <div className="relative px-5 pb-8 pt-14">
-        <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-primary/90 px-3 py-1 text-xs font-semibold text-primary-foreground">
-          <span className="text-sm">🌱</span> Sauvez la nourriture, sauvez la planète
+      <div className="relative px-6 pb-10 pt-16">
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full glass-card px-4 py-1.5 text-xs font-semibold text-foreground shadow-sm">
+          <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
+          Offres disponibles près de vous
         </div>
 
-        <h1 className="mt-3 font-display text-3xl font-bold leading-tight text-primary-foreground">
-          Sauvez des repas délicieux près de chez vous
+        <h1 className="mt-2 font-display text-4xl font-bold leading-[1.1] text-primary-foreground drop-shadow-lg">
+          Sauvez des repas,<br />
+          <span className="text-gradient-warm">savourez la différence</span>
         </h1>
-        <p className="mt-2 text-sm leading-relaxed text-primary-foreground/80">
-          Récupérez les surplus alimentaires des meilleurs restaurants jusqu'à -70%. Bon pour vous, génial pour la planète.
+        <p className="mt-3 max-w-xs text-sm leading-relaxed text-primary-foreground/85 drop-shadow">
+          Jusqu'à -70% sur les surplus des meilleurs restaurants. Bon pour le portefeuille, génial pour la planète.
         </p>
 
-        <button onClick={onExplore} className="mt-5 flex w-full items-center gap-3 rounded-xl bg-primary-foreground/95 px-4 py-3.5 text-left shadow-lg backdrop-blur-sm transition-transform active:scale-[0.98]">
-          <MapPin className="h-5 w-5 text-primary" />
-          <div>
-            <p className="text-sm font-semibold text-foreground">Trouver des offres à proximité</p>
-            <p className="text-xs text-muted-foreground">Activer la géolocalisation ou entrer une adresse</p>
+        <button
+          onClick={onExplore}
+          className="mt-6 flex w-full items-center gap-3 rounded-2xl bg-card p-4 shadow-xl transition-all active:scale-[0.98] hover:shadow-2xl"
+        >
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <MapPin className="h-5 w-5 text-primary" />
           </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-foreground">Trouver des offres</p>
+            <p className="text-xs text-muted-foreground">Autour de vous maintenant</p>
+          </div>
+          <ArrowRight className="h-4 w-4 text-muted-foreground" />
         </button>
       </div>
     </section>
