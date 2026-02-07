@@ -1,7 +1,11 @@
 import heroImage from "@/assets/hero-food.jpg";
 import { MapPin } from "lucide-react";
 
-const HeroSection = () => {
+interface HeroSectionProps {
+  onExplore: () => void;
+}
+
+const HeroSection = ({ onExplore }: HeroSectionProps) => {
   return (
     <section className="relative overflow-hidden rounded-b-[2rem]">
       <div className="absolute inset-0">
@@ -25,7 +29,7 @@ const HeroSection = () => {
           Récupérez les surplus alimentaires des meilleurs restaurants jusqu'à -70%. Bon pour vous, génial pour la planète.
         </p>
 
-        <button className="mt-5 flex w-full items-center gap-3 rounded-xl bg-primary-foreground/95 px-4 py-3.5 text-left shadow-lg backdrop-blur-sm transition-transform active:scale-[0.98]">
+        <button onClick={onExplore} className="mt-5 flex w-full items-center gap-3 rounded-xl bg-primary-foreground/95 px-4 py-3.5 text-left shadow-lg backdrop-blur-sm transition-transform active:scale-[0.98]">
           <MapPin className="h-5 w-5 text-primary" />
           <div>
             <p className="text-sm font-semibold text-foreground">Trouver des offres à proximité</p>

@@ -38,7 +38,7 @@ const Index = () => {
       default:
         return (
           <>
-            <HeroSection />
+            <HeroSection onExplore={() => setActiveTab("explore")} />
             <ImpactBanner />
             <CategoryFilter selected={selectedCategory} onSelect={setSelectedCategory} />
             <div className="px-5">
