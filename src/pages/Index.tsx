@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import HeroSection from "@/components/HeroSection";
 import CategoryFilter from "@/components/CategoryFilter";
 import NotificationBell from "@/components/NotificationBell";
@@ -19,13 +20,25 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const Index = () => {
+  const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [activeTab, setActiveTab] = useState("home");
   const [showMap, setShowMap] = useState(false);
   const { offers, loading, refetch } = useOffers();
   const { ratings } = useAllRestaurantRatings();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+
+  // Redirect merchants to their dashboard
+  useEffect(() => {
+    if (profile?.role === "merchant") {
+      const params = new URLSearchParams(window.location.search);
+      // Don't redirect if coming back from Stripe payment
+      if (!params.get("payment")) {
+        navigate("/dashboard", { replace: true });
+      }
+    }
+  }, [profile, navigate]);
 
   // Handle Stripe payment return — create reservation AFTER successful payment
   useEffect(() => {

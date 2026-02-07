@@ -15,6 +15,20 @@ const AuthPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const redirectByRole = async (userId: string, fallback: string) => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (data?.role === "merchant") {
+      navigate("/dashboard");
+    } else {
+      navigate(fallback);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) {
@@ -29,7 +43,7 @@ const AuthPage = () => {
     setLoading(true);
     try {
       if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           if (error.message.includes("Invalid login")) {
             toast.error("Email ou mot de passe incorrect");
@@ -41,7 +55,9 @@ const AuthPage = () => {
           return;
         }
         toast.success("Connexion réussie !");
-        navigate("/");
+        if (authData.user) {
+          await redirectByRole(authData.user.id, "/");
+        }
       } else {
         const role = mode === "merchant-signup" ? "merchant" : "consumer";
         const { error } = await supabase.auth.signUp({
