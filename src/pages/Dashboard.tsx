@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import NotificationBell from "@/components/NotificationBell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useSubscription, PLANS, type PlanKey } from "@/hooks/useSubscription";
+import { useSubscription, MERCHANT_PLAN } from "@/hooks/useSubscription";
 
 interface RestaurantData {
   id: string;
@@ -197,7 +197,7 @@ const Dashboard = () => {
             </p>
             {subscription.subscribed ? (
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Plan {subscription.planKey === "pro" ? "Pro" : "Basic"} · 
+                Plan {MERCHANT_PLAN.name} · 
                 Renouvellement {subscription.subscriptionEnd ? new Date(subscription.subscriptionEnd).toLocaleDateString("fr-FR") : ""}
               </p>
             ) : (
@@ -211,14 +211,9 @@ const Dashboard = () => {
               Gérer <ExternalLink className="ml-1 h-3 w-3" />
             </Button>
           ) : (
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={async () => {
-                try { await subscription.startCheckout("basic"); } catch { toast.error("Erreur de paiement"); }
-              }}>Basic 29€</Button>
-              <Button size="sm" onClick={async () => {
-                try { await subscription.startCheckout("pro"); } catch { toast.error("Erreur de paiement"); }
-              }}>Pro 59€</Button>
-            </div>
+            <Button size="sm" onClick={async () => {
+              try { await subscription.startCheckout(); } catch { toast.error("Erreur de paiement"); }
+            }}>{MERCHANT_PLAN.name} {MERCHANT_PLAN.price}€/mois</Button>
           )}
         </div>
       </div>
