@@ -11,14 +11,16 @@ import ExplorePage from "@/pages/ExplorePage";
 import FavoritesPage from "@/pages/FavoritesPage";
 import ProfilePage from "@/pages/ProfilePage";
 import OrdersPage from "@/pages/OrdersPage";
-import { mockOffers, type Offer } from "@/data/mockOffers";
+import { useOffers, type Offer } from "@/hooks/useOffers";
 import { useAllRestaurantRatings } from "@/hooks/useAllRestaurantRatings";
+import { Loader2 } from "lucide-react";
 
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [activeTab, setActiveTab] = useState("home");
   const [showMap, setShowMap] = useState(false);
+  const { offers, loading } = useOffers();
   const { ratings } = useAllRestaurantRatings();
 
   // Handle Stripe payment return — navigate to orders tab
@@ -26,7 +28,6 @@ const Index = () => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("payment") === "success") {
       setActiveTab("orders");
-      // Clean URL
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
@@ -34,9 +35,9 @@ const Index = () => {
   const filteredOffers = useMemo(
     () =>
       selectedCategory === "all"
-        ? mockOffers
-        : mockOffers.filter((o) => o.category === selectedCategory),
-    [selectedCategory]
+        ? offers
+        : offers.filter((o) => o.category === selectedCategory),
+    [selectedCategory, offers]
   );
 
   if (selectedOffer) {
@@ -46,6 +47,7 @@ const Index = () => {
   if (showMap) {
     return (
       <MapView
+        offers={offers}
         onBack={() => setShowMap(false)}
         onSelectOffer={(offer) => {
           setShowMap(false);
@@ -58,7 +60,7 @@ const Index = () => {
   const renderTab = () => {
     switch (activeTab) {
       case "explore":
-        return <ExplorePage />;
+        return <ExplorePage offers={offers} loadingOffers={loading} />;
       case "orders":
         return <OrdersPage />;
       case "favorites":
@@ -80,17 +82,29 @@ const Index = () => {
                   {filteredOffers.length} offres
                 </span>
               </div>
-              <div className="grid gap-4">
-                {filteredOffers.map((offer, i) => (
-                  <OfferCard
-                    key={offer.id}
-                    offer={offer}
-                    onClick={setSelectedOffer}
-                    index={i}
-                    dynamicRating={ratings[offer.restaurantName]}
-                  />
-                ))}
-              </div>
+              {loading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : filteredOffers.length === 0 ? (
+                <div className="py-12 text-center">
+                  <p className="text-4xl">🍽️</p>
+                  <p className="mt-3 font-display text-lg font-semibold text-foreground">Aucune offre disponible</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Revenez plus tard pour découvrir de nouvelles offres</p>
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {filteredOffers.map((offer, i) => (
+                    <OfferCard
+                      key={offer.id}
+                      offer={offer}
+                      onClick={setSelectedOffer}
+                      index={i}
+                      dynamicRating={ratings[offer.restaurantName]}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </>
         );
@@ -99,7 +113,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      {/* Floating notification bell */}
       <div className="fixed right-4 top-4 z-50">
         <NotificationBell />
       </div>

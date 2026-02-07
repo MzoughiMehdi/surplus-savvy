@@ -1,5 +1,5 @@
 import { Clock, Star } from "lucide-react";
-import type { Offer } from "@/data/mockOffers";
+import type { Offer } from "@/hooks/useOffers";
 
 interface OfferCardProps {
   offer: Offer;
@@ -10,8 +10,8 @@ interface OfferCardProps {
 
 const OfferCard = ({ offer, onClick, index, dynamicRating }: OfferCardProps) => {
   const discount = Math.round((1 - offer.discountedPrice / offer.originalPrice) * 100);
-  const rating = dynamicRating?.avg ?? offer.rating;
-  const reviewCount = dynamicRating?.count ?? offer.reviewCount;
+  const rating = dynamicRating?.avg ?? 0;
+  const reviewCount = dynamicRating?.count ?? 0;
 
   return (
     <button
@@ -42,11 +42,13 @@ const OfferCard = ({ offer, onClick, index, dynamicRating }: OfferCardProps) => 
               />
               <span className="text-xs font-semibold text-primary-foreground drop-shadow">{offer.restaurantName}</span>
             </div>
-            <div className="flex items-center gap-1 rounded-lg bg-card/90 px-2 py-1 backdrop-blur-sm">
-              <Star className="h-3 w-3 fill-accent text-accent" />
-              <span className="text-xs font-bold text-foreground">{rating}</span>
-              <span className="text-[10px] text-muted-foreground">({reviewCount})</span>
-            </div>
+            {reviewCount > 0 && (
+              <div className="flex items-center gap-1 rounded-lg bg-card/90 px-2 py-1 backdrop-blur-sm">
+                <Star className="h-3 w-3 fill-accent text-accent" />
+                <span className="text-xs font-bold text-foreground">{rating}</span>
+                <span className="text-[10px] text-muted-foreground">({reviewCount})</span>
+              </div>
+            )}
           </div>
         </div>
 

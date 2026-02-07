@@ -1,26 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import { ArrowLeft, Navigation } from "lucide-react";
-import { mockOffers, type Offer } from "@/data/mockOffers";
+import type { Offer } from "@/hooks/useOffers";
 import "leaflet/dist/leaflet.css";
 
-// Simulated restaurant locations around Paris
-const restaurantLocations = mockOffers.map((offer, i) => ({
-  ...offer,
-  lat: 48.8566 + Math.sin(i * 1.8) * 0.012,
-  lng: 2.3522 + Math.cos(i * 1.5) * 0.015,
-}));
-
 interface MapViewProps {
+  offers: Offer[];
   onBack: () => void;
   onSelectOffer: (offer: Offer) => void;
 }
 
-const MapView = ({ onBack, onSelectOffer }: MapViewProps) => {
+const MapView = ({ offers, onBack, onSelectOffer }: MapViewProps) => {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [locating, setLocating] = useState(false);
   const defaultCenter: [number, number] = [48.8566, 2.3522];
+
+  // Generate stable pseudo-random positions per offer
+  const offerLocations = offers.map((offer, i) => ({
+    ...offer,
+    lat: 48.8566 + Math.sin(i * 1.8) * 0.012,
+    lng: 2.3522 + Math.cos(i * 1.5) * 0.015,
+  }));
 
   const flyToUser = () => {
     setLocating(true);
@@ -29,7 +30,6 @@ const MapView = ({ onBack, onSelectOffer }: MapViewProps) => {
         (pos) => {
           const latlng: [number, number] = [pos.coords.latitude, pos.coords.longitude];
           if (mapRef.current) {
-            // Add/update user marker
             const userIcon = L.divIcon({
               html: `<div style="width:18px;height:18px;border-radius:50%;background:hsl(152,45%,28%);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);"></div>`,
               className: "",
@@ -67,8 +67,7 @@ const MapView = ({ onBack, onSelectOffer }: MapViewProps) => {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
 
-    // Add restaurant markers
-    restaurantLocations.forEach((r) => {
+    offerLocations.forEach((r) => {
       const icon = L.divIcon({
         html: `<div style="width:36px;height:36px;border-radius:50%;background:hsl(16,65%,55%);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:18px;">🍽️</div>`,
         className: "",
@@ -99,15 +98,13 @@ const MapView = ({ onBack, onSelectOffer }: MapViewProps) => {
     });
 
     mapRef.current = map;
-
-    // Auto-locate
     flyToUser();
 
     return () => {
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [offers]);
 
   return (
     <div className="relative h-screen w-full">
@@ -130,7 +127,7 @@ const MapView = ({ onBack, onSelectOffer }: MapViewProps) => {
 
       <div className="absolute bottom-16 left-4 right-4 z-[1000] rounded-2xl bg-background/95 p-4 shadow-lg backdrop-blur-sm">
         <p className="text-sm font-semibold text-foreground">
-          🍽️ {restaurantLocations.length} restaurants à proximité
+          🍽️ {offerLocations.length} offres à proximité
         </p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           Appuyez sur un marqueur pour voir l'offre
