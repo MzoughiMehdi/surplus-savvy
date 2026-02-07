@@ -3,6 +3,7 @@ import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { LayoutDashboard, Store, BarChart3, Shield, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import NotificationBell from "@/components/NotificationBell";
 import {
   Sidebar,
   SidebarContent,
@@ -87,11 +88,14 @@ const AdminLayout = () => {
         </Sidebar>
 
         <main className="flex-1">
-          <header className="flex h-14 items-center border-b border-border px-4">
-            <SidebarTrigger className="mr-4" />
-            <h2 className="font-display text-lg font-semibold text-foreground">
-              {navItems.find((n) => location.pathname === n.url || (n.url !== "/admin" && location.pathname.startsWith(n.url)))?.title ?? "Admin"}
-            </h2>
+          <header className="flex h-14 items-center justify-between border-b border-border px-4">
+            <div className="flex items-center">
+              <SidebarTrigger className="mr-4" />
+              <h2 className="font-display text-lg font-semibold text-foreground">
+                {navItems.find((n) => location.pathname === n.url || (n.url !== "/admin" && location.pathname.startsWith(n.url)))?.title ?? "Admin"}
+              </h2>
+            </div>
+            <NotificationBell />
           </header>
           <div className="p-6">
             <Outlet />

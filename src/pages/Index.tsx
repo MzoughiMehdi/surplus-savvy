@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import HeroSection from "@/components/HeroSection";
 import CategoryFilter from "@/components/CategoryFilter";
+import NotificationBell from "@/components/NotificationBell";
 import OfferCard from "@/components/OfferCard";
 import OfferDetail from "@/components/OfferDetail";
 import BottomNav from "@/components/BottomNav";
@@ -82,6 +83,10 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
+      {/* Floating notification bell */}
+      <div className="fixed right-4 top-4 z-50">
+        <NotificationBell />
+      </div>
       {renderTab()}
       <BottomNav active={activeTab} onNavigate={setActiveTab} />
     </div>
