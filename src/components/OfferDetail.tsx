@@ -1,6 +1,6 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Clock, MapPin, Star, ShoppingBag, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { Offer } from "@/hooks/useOffers";
@@ -13,11 +13,12 @@ interface OfferDetailProps {
 
 const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [reserving, setReserving] = useState(false);
 
   const discount = Math.round((1 - offer.discountedPrice / offer.originalPrice) * 100);
 
-  const handleReserve = async () => {
+  const handleReserve = () => {
     if (!user) {
       toast.error("Connectez-vous pour réserver");
       return;
@@ -27,30 +28,14 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
       return;
     }
 
-    setReserving(true);
+    const params = new URLSearchParams({
+      offerId: offer.id,
+      offerTitle: offer.title,
+      amount: offer.discountedPrice.toString(),
+      restaurantId: offer.restaurantId || "",
+    });
 
-    try {
-      // Only create Stripe session — reservation will be created AFTER successful payment
-      const { data: paymentData, error: paymentError } = await supabase.functions.invoke("create-payment", {
-        body: {
-          offerId: offer.id,
-          offerTitle: offer.title,
-          amount: offer.discountedPrice,
-          restaurantId: offer.restaurantId,
-        },
-      });
-
-      if (paymentError || !paymentData?.url) {
-        toast.error("Erreur lors du paiement");
-        setReserving(false);
-        return;
-      }
-
-      window.location.href = paymentData.url;
-    } catch {
-      toast.error("Erreur inattendue");
-      setReserving(false);
-    }
+    navigate(`/checkout?${params.toString()}`);
   };
 
   return (

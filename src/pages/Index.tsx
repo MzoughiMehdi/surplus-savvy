@@ -15,12 +15,13 @@ import OrdersPage from "@/pages/OrdersPage";
 import { useOffers, type Offer } from "@/hooks/useOffers";
 import { useAllRestaurantRatings } from "@/hooks/useAllRestaurantRatings";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useSearchParams } from "react-router-dom";
 
 const Index = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [activeTab, setActiveTab] = useState("home");
@@ -32,72 +33,18 @@ const Index = () => {
   // Redirect merchants to their dashboard
   useEffect(() => {
     if (profile?.role === "merchant") {
-      const params = new URLSearchParams(window.location.search);
-      // Don't redirect if coming back from Stripe payment
-      if (!params.get("payment")) {
-        navigate("/dashboard", { replace: true });
-      }
+      navigate("/dashboard", { replace: true });
     }
   }, [profile, navigate]);
 
-  // Handle Stripe payment return — create reservation AFTER successful payment
+  // Handle ?tab=orders from checkout return
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const paymentStatus = params.get("payment");
-    const offerId = params.get("offer_id");
-    const restaurantId = params.get("restaurant_id");
-
-    if (paymentStatus === "success" && offerId && user) {
-      const createReservation = async () => {
-        try {
-          // Check if reservation already exists (avoid duplicates on page refresh)
-          const { data: existing } = await supabase
-            .from("reservations")
-            .select("id")
-            .eq("user_id", user.id)
-            .eq("offer_id", offerId)
-            .limit(1);
-
-          if (existing && existing.length > 0) {
-            // Already created, just go to orders
-            setActiveTab("orders");
-            window.history.replaceState({}, "", window.location.pathname);
-            return;
-          }
-
-          const { data: newRes, error } = await supabase
-            .from("reservations")
-            .insert({
-              user_id: user.id,
-              offer_id: offerId,
-              restaurant_id: restaurantId || "",
-            })
-            .select("*, offers(title, discounted_price, pickup_start, pickup_end), restaurants(name)")
-            .single();
-
-          if (error) {
-            console.error("Error creating reservation:", error);
-            toast.error("Erreur lors de la création de la réservation");
-            setActiveTab("orders");
-          } else {
-            toast.success("Paiement confirmé ! Votre réservation est prête.");
-            refetch();
-            setActiveTab("orders");
-          }
-        } catch (err) {
-          console.error("Unexpected error:", err);
-          toast.error("Erreur inattendue");
-          setActiveTab("orders");
-        }
-        window.history.replaceState({}, "", window.location.pathname);
-      };
-
-      createReservation();
-    } else if (paymentStatus === "cancelled") {
-      toast.info("Paiement annulé");
-      window.history.replaceState({}, "", window.location.pathname);
+    const tab = searchParams.get("tab");
+    if (tab === "orders") {
+      setActiveTab("orders");
+      window.history.replaceState({}, "", "/");
     }
-  }, [user]);
+  }, [searchParams]);
 
   const filteredOffers = useMemo(
     () =>

@@ -13,6 +13,8 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminRestaurants from "./pages/admin/AdminRestaurants";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
+import CheckoutPage from "./pages/CheckoutPage";
+import CheckoutReturnPage from "./pages/CheckoutReturnPage";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +30,8 @@ const App = () => (
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/merchant-onboarding" element={<MerchantOnboarding />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/checkout-return" element={<CheckoutReturnPage />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="restaurants" element={<AdminRestaurants />} />
