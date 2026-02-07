@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { ArrowLeft, Clock, QrCode, Package, XCircle, CheckCircle } from "lucide-react";
+import { Clock, QrCode, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import ReservationConfirmation from "@/components/ReservationConfirmation";
 import { toast } from "sonner";
@@ -20,10 +20,10 @@ interface Reservation {
     discounted_price: number;
     pickup_start: string;
     pickup_end: string;
-  };
+  } | null;
   restaurants: {
     name: string;
-  };
+  } | null;
 }
 
 const OrdersPage = () => {
@@ -34,13 +34,26 @@ const OrdersPage = () => {
 
   const fetchReservations = async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from("reservations")
-      .select("*, offers(title, discounted_price, pickup_start, pickup_end), restaurants(name)")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    setReservations((data as unknown as Reservation[]) ?? []);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from("reservations")
+        .select("*, offers(title, discounted_price, pickup_start, pickup_end), restaurants(name)")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching reservations:", error);
+        toast.error("Erreur lors du chargement des commandes");
+        setReservations([]);
+      } else {
+        setReservations((data as unknown as Reservation[]) ?? []);
+      }
+    } catch (err) {
+      console.error("Unexpected error fetching reservations:", err);
+      setReservations([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -48,25 +61,29 @@ const OrdersPage = () => {
   }, [user]);
 
   const cancelReservation = async (id: string) => {
-    const { error } = await supabase
-      .from("reservations")
-      .update({ status: "cancelled" })
-      .eq("id", id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Réservation annulée");
-    setSelected(null);
-    fetchReservations();
+    try {
+      const { error } = await supabase
+        .from("reservations")
+        .update({ status: "cancelled" })
+        .eq("id", id);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Réservation annulée");
+      setSelected(null);
+      fetchReservations();
+    } catch {
+      toast.error("Erreur inattendue");
+    }
   };
 
   if (selected) {
     return (
       <ReservationConfirmation
         pickupCode={selected.pickup_code}
-        offerTitle={selected.offers.title}
-        restaurantName={selected.restaurants.name}
-        pickupStart={selected.offers.pickup_start}
-        pickupEnd={selected.offers.pickup_end}
-        price={selected.offers.discounted_price}
+        offerTitle={selected.offers?.title ?? "Offre"}
+        restaurantName={selected.restaurants?.name ?? "Restaurant"}
+        pickupStart={selected.offers?.pickup_start ?? ""}
+        pickupEnd={selected.offers?.pickup_end ?? ""}
+        price={selected.offers?.discounted_price ?? 0}
         status={selected.status}
         onBack={() => setSelected(null)}
         onCancel={selected.status === "confirmed" ? () => cancelReservation(selected.id) : undefined}
@@ -111,15 +128,15 @@ const OrdersPage = () => {
                   <QrCode className="h-6 w-6 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-foreground">{r.offers.title}</p>
-                  <p className="text-xs text-muted-foreground">{r.restaurants.name}</p>
+                  <p className="truncate text-sm font-semibold text-foreground">{r.offers?.title ?? "Offre"}</p>
+                  <p className="text-xs text-muted-foreground">{r.restaurants?.name ?? "Restaurant"}</p>
                   <p className="mt-0.5 text-[10px] text-muted-foreground">
                     {formatDistanceToNow(new Date(r.created_at), { addSuffix: true, locale: fr })}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <Badge variant={sc.variant} className="text-[10px]">{sc.label}</Badge>
-                  <span className="text-sm font-bold text-primary">€{r.offers.discounted_price}</span>
+                  <span className="text-sm font-bold text-primary">€{r.offers?.discounted_price ?? 0}</span>
                 </div>
               </button>
             );

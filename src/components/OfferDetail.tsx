@@ -46,7 +46,7 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
         return;
       }
 
-      window.open(paymentData.url, "_blank");
+      window.location.href = paymentData.url;
     } catch {
       toast.error("Erreur inattendue");
       setReserving(false);
