@@ -5,6 +5,7 @@ import OfferCard from "@/components/OfferCard";
 import OfferDetail from "@/components/OfferDetail";
 import BottomNav from "@/components/BottomNav";
 import ImpactBanner from "@/components/ImpactBanner";
+import MapView from "@/components/MapView";
 import ExplorePage from "@/pages/ExplorePage";
 import FavoritesPage from "@/pages/FavoritesPage";
 import ProfilePage from "@/pages/ProfilePage";
@@ -14,6 +15,7 @@ const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [activeTab, setActiveTab] = useState("home");
+  const [showMap, setShowMap] = useState(false);
 
   const filteredOffers = useMemo(
     () =>
@@ -27,6 +29,18 @@ const Index = () => {
     return <OfferDetail offer={selectedOffer} onBack={() => setSelectedOffer(null)} />;
   }
 
+  if (showMap) {
+    return (
+      <MapView
+        onBack={() => setShowMap(false)}
+        onSelectOffer={(offer) => {
+          setShowMap(false);
+          setSelectedOffer(offer);
+        }}
+      />
+    );
+  }
+
   const renderTab = () => {
     switch (activeTab) {
       case "explore":
@@ -38,7 +52,7 @@ const Index = () => {
       default:
         return (
           <>
-            <HeroSection onExplore={() => setActiveTab("explore")} />
+            <HeroSection onExplore={() => setShowMap(true)} />
             <ImpactBanner />
             <CategoryFilter selected={selectedCategory} onSelect={setSelectedCategory} />
             <div className="px-5">
