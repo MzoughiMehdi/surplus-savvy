@@ -19,49 +19,50 @@ const OfferCard = ({ offer, onClick, index, dynamicRating }: OfferCardProps) => 
       className="group w-full animate-fade-in-up text-left"
       style={{ animationDelay: `${index * 80}ms` }}
     >
-      <div className="overflow-hidden rounded-2xl bg-card shadow-sm transition-all hover:shadow-md active:scale-[0.98]">
+      <div className="overflow-hidden rounded-2xl glass-card shadow-sm transition-all hover:shadow-lg active:scale-[0.98]">
         <div className="relative">
           <img
             src={offer.image}
             alt={offer.title}
-            className="h-40 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="h-44 w-full object-cover transition-transform duration-500 group-hover:scale-105"
             loading="lazy"
           />
-          <div className="absolute left-3 top-3 rounded-full bg-accent px-2.5 py-1 text-xs font-bold text-accent-foreground">
+          <div className="absolute inset-0 bg-gradient-to-t from-foreground/40 via-transparent to-transparent" />
+
+          <div className="absolute left-3 top-3 rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-lg">
             -{discount}%
           </div>
-          <div className="absolute bottom-3 right-3 rounded-full bg-foreground/70 px-2.5 py-1 text-xs font-medium text-primary-foreground backdrop-blur-sm">
-            {offer.itemsLeft} restant{offer.itemsLeft > 1 ? "s" : ""}
-          </div>
-        </div>
 
-        <div className="p-3.5">
-          <div className="flex items-center gap-2">
-            <img
-              src={offer.restaurantImage}
-              alt={offer.restaurantName}
-              className="h-7 w-7 rounded-full object-cover"
-            />
-            <span className="text-xs font-medium text-muted-foreground">{offer.restaurantName}</span>
-            <div className="ml-auto flex items-center gap-1">
-              <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-              <span className="text-xs font-semibold text-foreground">{rating}</span>
+          <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+            <div className="flex items-center gap-2">
+              <img
+                src={offer.restaurantImage}
+                alt={offer.restaurantName}
+                className="h-8 w-8 rounded-full border-2 border-card object-cover shadow"
+              />
+              <span className="text-xs font-semibold text-primary-foreground drop-shadow">{offer.restaurantName}</span>
+            </div>
+            <div className="flex items-center gap-1 rounded-lg bg-card/90 px-2 py-1 backdrop-blur-sm">
+              <Star className="h-3 w-3 fill-accent text-accent" />
+              <span className="text-xs font-bold text-foreground">{rating}</span>
               <span className="text-[10px] text-muted-foreground">({reviewCount})</span>
             </div>
           </div>
+        </div>
 
-          <h3 className="mt-2 text-sm font-semibold leading-snug text-foreground">
+        <div className="p-4">
+          <h3 className="text-sm font-semibold leading-snug text-foreground">
             {offer.title}
           </h3>
 
-          <div className="mt-2 flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">
+          <div className="mt-3 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Clock className="h-3.5 w-3.5" />
+              <span className="text-xs">
                 {offer.pickupStart} – {offer.pickupEnd}
               </span>
             </div>
-            <div className="flex items-baseline gap-1.5">
+            <div className="flex items-baseline gap-2">
               <span className="text-xs text-muted-foreground line-through">
                 €{offer.originalPrice.toFixed(2)}
               </span>
@@ -69,6 +70,18 @@ const OfferCard = ({ offer, onClick, index, dynamicRating }: OfferCardProps) => 
                 €{offer.discountedPrice.toFixed(2)}
               </span>
             </div>
+          </div>
+
+          <div className="mt-2 flex items-center gap-1.5">
+            <div className="h-1.5 flex-1 rounded-full bg-secondary">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all"
+                style={{ width: `${Math.max(15, (offer.itemsLeft / 5) * 100)}%` }}
+              />
+            </div>
+            <span className="text-[10px] font-semibold text-muted-foreground">
+              {offer.itemsLeft} restant{offer.itemsLeft > 1 ? "s" : ""}
+            </span>
           </div>
         </div>
       </div>

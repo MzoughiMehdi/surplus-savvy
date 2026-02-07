@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Playfair+Display:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,35 +6,35 @@
 
 @layer base {
   :root {
-    --background: 45 33% 97%;
-    --foreground: 150 25% 12%;
+    --background: 35 35% 97%;
+    --foreground: 20 25% 12%;
 
-    --card: 45 30% 95%;
-    --card-foreground: 150 25% 12%;
+    --card: 35 30% 99%;
+    --card-foreground: 20 25% 12%;
 
-    --popover: 45 33% 97%;
-    --popover-foreground: 150 25% 12%;
+    --popover: 35 35% 97%;
+    --popover-foreground: 20 25% 12%;
 
-    --primary: 152 45% 28%;
-    --primary-foreground: 45 33% 97%;
+    --primary: 16 70% 50%;
+    --primary-foreground: 35 35% 97%;
 
-    --secondary: 45 25% 90%;
-    --secondary-foreground: 150 25% 12%;
+    --secondary: 35 20% 92%;
+    --secondary-foreground: 20 25% 12%;
 
-    --muted: 45 18% 92%;
-    --muted-foreground: 150 10% 45%;
+    --muted: 30 15% 90%;
+    --muted-foreground: 20 10% 45%;
 
-    --accent: 16 65% 55%;
-    --accent-foreground: 45 33% 97%;
+    --accent: 45 85% 52%;
+    --accent-foreground: 20 25% 12%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 45 18% 88%;
-    --input: 45 18% 88%;
-    --ring: 152 45% 28%;
+    --border: 30 15% 90%;
+    --input: 30 15% 88%;
+    --ring: 16 70% 50%;
 
-    --radius: 1rem;
+    --radius: 1.25rem;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -45,32 +45,32 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
 
-    --success: 152 55% 42%;
-    --warning: 38 92% 50%;
-    --eco-light: 145 30% 94%;
-    --eco-dark: 152 35% 18%;
+    --success: 160 50% 40%;
+    --warning: 45 85% 52%;
+    --eco-light: 160 25% 94%;
+    --eco-dark: 20 20% 18%;
   }
 
   .dark {
-    --background: 150 20% 8%;
-    --foreground: 45 30% 95%;
-    --card: 150 18% 12%;
-    --card-foreground: 45 30% 95%;
-    --popover: 150 18% 12%;
-    --popover-foreground: 45 30% 95%;
-    --primary: 152 50% 45%;
-    --primary-foreground: 150 20% 8%;
-    --secondary: 150 15% 18%;
-    --secondary-foreground: 45 30% 95%;
-    --muted: 150 12% 16%;
-    --muted-foreground: 45 15% 60%;
-    --accent: 16 65% 55%;
-    --accent-foreground: 45 33% 97%;
+    --background: 20 18% 8%;
+    --foreground: 35 25% 95%;
+    --card: 20 15% 12%;
+    --card-foreground: 35 25% 95%;
+    --popover: 20 15% 12%;
+    --popover-foreground: 35 25% 95%;
+    --primary: 16 75% 55%;
+    --primary-foreground: 20 18% 8%;
+    --secondary: 20 12% 18%;
+    --secondary-foreground: 35 25% 95%;
+    --muted: 20 10% 16%;
+    --muted-foreground: 35 12% 55%;
+    --accent: 45 80% 50%;
+    --accent-foreground: 20 25% 12%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 150 12% 20%;
-    --input: 150 12% 20%;
-    --ring: 152 50% 45%;
+    --border: 20 10% 20%;
+    --input: 20 10% 20%;
+    --ring: 16 75% 55%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -88,18 +88,22 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'DM Sans', sans-serif;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Outfit', sans-serif;
   }
 
   h1, h2, h3 {
-    font-family: 'Playfair Display', serif;
+    font-family: 'Fraunces', serif;
   }
 }
 
 @layer utilities {
-  .text-gradient-eco {
+  .text-gradient-warm {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, hsl(152, 45%, 28%), hsl(152, 55%, 42%));
+    background-image: linear-gradient(135deg, hsl(16, 70%, 50%), hsl(45, 85%, 52%));
+  }
+
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-md border border-border/50;
   }
 }

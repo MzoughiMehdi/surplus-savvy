@@ -7,18 +7,18 @@ interface CategoryFilterProps {
 
 const CategoryFilter = ({ selected, onSelect }: CategoryFilterProps) => {
   return (
-    <div className="flex gap-2 overflow-x-auto px-5 py-4 scrollbar-hide">
+    <div className="flex gap-2.5 overflow-x-auto px-5 py-4 scrollbar-hide">
       {categories.map((cat) => (
         <button
           key={cat.id}
           onClick={() => onSelect(cat.id)}
-          className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+          className={`flex shrink-0 items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all ${
             selected === cat.id
-              ? "bg-primary text-primary-foreground shadow-md"
-              : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
+              : "glass-card text-foreground hover:shadow-md"
           }`}
         >
-          <span>{cat.icon}</span>
+          <span className="text-base">{cat.icon}</span>
           {cat.label}
         </button>
       ))}
