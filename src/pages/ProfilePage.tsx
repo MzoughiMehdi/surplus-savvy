@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
 const ProfilePage = () => {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
 
   const menuItems = [
@@ -44,14 +44,22 @@ const ProfilePage = () => {
         </div>
       </div>
 
-      <div className="mx-5 mt-4">
+      <div className="mx-5 mt-4 space-y-3">
         {user ? (
-          profile?.role === "merchant" ? (
-            <button onClick={() => navigate("/dashboard")}
-              className="w-full rounded-xl bg-accent py-3.5 text-center text-sm font-bold text-accent-foreground shadow-md transition-transform active:scale-[0.98]">
-              Accéder au tableau de bord restaurant
-            </button>
-          ) : null
+          <>
+            {isAdmin && (
+              <button onClick={() => navigate("/admin")}
+                className="w-full rounded-xl bg-foreground py-3.5 text-center text-sm font-bold text-background shadow-md transition-transform active:scale-[0.98]">
+                🛡️ Back-office Admin
+              </button>
+            )}
+            {profile?.role === "merchant" && (
+              <button onClick={() => navigate("/dashboard")}
+                className="w-full rounded-xl bg-accent py-3.5 text-center text-sm font-bold text-accent-foreground shadow-md transition-transform active:scale-[0.98]">
+                Accéder au tableau de bord restaurant
+              </button>
+            )}
+          </>
         ) : (
           <button onClick={handleAuth}
             className="w-full rounded-xl bg-primary py-3.5 text-center text-sm font-bold text-primary-foreground shadow-md transition-transform active:scale-[0.98]">
