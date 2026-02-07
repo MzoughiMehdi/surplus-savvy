@@ -70,6 +70,8 @@ const OrdersPage = () => {
         status={selected.status}
         onBack={() => setSelected(null)}
         onCancel={selected.status === "confirmed" ? () => cancelReservation(selected.id) : undefined}
+        reservationId={selected.id}
+        restaurantId={selected.restaurant_id}
       />
     );
   }
