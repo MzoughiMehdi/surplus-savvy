@@ -68,43 +68,48 @@ const ProfilePage = () => {
         )}
       </div>
 
-      {/* Stats */}
-      <div className="mx-5 mt-5 grid grid-cols-3 gap-3">
-        <div className="rounded-xl bg-eco-light p-3 text-center">
-          <p className="text-xl font-bold text-primary">0</p>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">Repas sauvés</p>
-        </div>
-        <div className="rounded-xl bg-eco-light p-3 text-center">
-          <p className="text-xl font-bold text-primary">0 kg</p>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">CO₂ évité</p>
-        </div>
-        <div className="rounded-xl bg-eco-light p-3 text-center">
-          <p className="text-xl font-bold text-primary">0 €</p>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">Économisé</p>
-        </div>
-      </div>
+      {user && (
+        <>
+          {/* Stats */}
+          <div className="mx-5 mt-5 grid grid-cols-3 gap-3">
+            <div className="rounded-xl bg-eco-light p-3 text-center">
+              <p className="text-xl font-bold text-primary">0</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">Repas sauvés</p>
+            </div>
+            <div className="rounded-xl bg-eco-light p-3 text-center">
+              <p className="text-xl font-bold text-primary">0 kg</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">CO₂ évité</p>
+            </div>
+            <div className="rounded-xl bg-eco-light p-3 text-center">
+              <p className="text-xl font-bold text-primary">0 €</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">Économisé</p>
+            </div>
+          </div>
 
-      {/* Menu */}
-      <div className="mx-5 mt-6 overflow-hidden rounded-2xl bg-card shadow-sm">
-        {menuItems.map((item, i) => {
-          const Icon = item.icon;
-          return (
-            <button key={item.label}
-              className={`flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-secondary/50 active:bg-secondary ${
-                i !== menuItems.length - 1 ? "border-b border-border" : ""
-              }`}>
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary">
-                <Icon className="h-4 w-4 text-foreground" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-foreground">{item.label}</p>
-                <p className="text-xs text-muted-foreground">{item.description}</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </button>
-          );
-        })}
-      </div>
+          {/* Menu */}
+          <div className="mx-5 mt-6 overflow-hidden rounded-2xl bg-card shadow-sm">
+            {menuItems.map((item, i) => {
+              const Icon = item.icon;
+              return (
+                <button key={item.label}
+                  className={`flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-secondary/50 active:bg-secondary ${
+                    i !== menuItems.length - 1 ? "border-b border-border" : ""
+                  }`}>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary">
+                    <Icon className="h-4 w-4 text-foreground" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">{item.label}</p>
+                    <p className="text-xs text-muted-foreground">{item.description}</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
 
       {user && (
         <div className="mx-5 mt-4">
