@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { Plus, Package, Clock, Trash2, Edit2, BarChart3, Store, LogOut } from "lucide-react";
 import { toast } from "sonner";
+import NotificationBell from "@/components/NotificationBell";
 
 interface RestaurantData {
   id: string;
@@ -128,9 +129,12 @@ const Dashboard = () => {
           <h1 className="font-display text-2xl font-bold text-foreground">Tableau de bord</h1>
           <p className="text-sm text-muted-foreground">{restaurant?.name}</p>
         </div>
-        <button onClick={() => { signOut(); navigate("/"); }} className="rounded-full bg-secondary p-2.5">
-          <LogOut className="h-4 w-4 text-muted-foreground" />
-        </button>
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          <button onClick={() => { signOut(); navigate("/"); }} className="rounded-full bg-secondary p-2.5">
+            <LogOut className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
       </div>
 
       {/* Status / Trial */}
