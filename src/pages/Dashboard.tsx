@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { Plus, Package, Clock, Trash2, Edit2, BarChart3, Store, LogOut } from "lucide-react";
+import { Plus, Package, Clock, Trash2, Edit2, BarChart3, Store, LogOut, QrCode, CheckCircle, Users } from "lucide-react";
 import { toast } from "sonner";
 import NotificationBell from "@/components/NotificationBell";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface RestaurantData {
   id: string;
@@ -26,11 +28,22 @@ interface OfferData {
   category: string;
 }
 
+interface ReservationData {
+  id: string;
+  pickup_code: string;
+  status: string;
+  created_at: string;
+  user_id: string;
+  offers: { title: string; discounted_price: number };
+  customer_name?: string;
+}
+
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [restaurant, setRestaurant] = useState<RestaurantData | null>(null);
   const [offers, setOffers] = useState<OfferData[]>([]);
+  const [reservations, setReservations] = useState<ReservationData[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -60,13 +73,22 @@ const Dashboard = () => {
     if (!rest) { navigate("/merchant-onboarding"); return; }
     setRestaurant(rest);
 
-    const { data: off } = await supabase
-      .from("offers")
-      .select("*")
-      .eq("restaurant_id", rest.id)
-      .order("created_at", { ascending: false });
+    const [{ data: off }, { data: res }] = await Promise.all([
+      supabase
+        .from("offers")
+        .select("*")
+        .eq("restaurant_id", rest.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("reservations")
+        .select("id, pickup_code, status, created_at, user_id, offers(title, discounted_price)")
+        .eq("restaurant_id", rest.id)
+        .order("created_at", { ascending: false })
+        .limit(20),
+    ]);
 
     setOffers(off || []);
+    setReservations((res as unknown as ReservationData[]) || []);
     setLoading(false);
   };
 
@@ -237,6 +259,53 @@ const Dashboard = () => {
                     </button>
                   </div>
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Reservations */}
+      <div className="mt-6">
+        <h2 className="font-display text-lg font-bold text-foreground">
+          <Users className="mr-2 inline h-5 w-5" />
+          Réservations récentes
+        </h2>
+        {reservations.length === 0 ? (
+          <p className="mt-4 text-center text-sm text-muted-foreground">Aucune réservation</p>
+        ) : (
+          <div className="mt-3 space-y-3">
+            {reservations.map((r) => (
+              <div key={r.id} className="rounded-xl bg-card p-4 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{r.offers.title}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Client</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <QrCode className="h-3 w-3 text-muted-foreground" />
+                      <span className="font-mono text-xs font-bold text-primary">{r.pickup_code.toUpperCase()}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge variant={r.status === "confirmed" ? "default" : r.status === "completed" ? "secondary" : "destructive"} className="text-[10px]">
+                      {r.status === "confirmed" ? "À retirer" : r.status === "completed" ? "Retiré" : "Annulé"}
+                    </Badge>
+                    <span className="text-sm font-bold text-primary">€{r.offers.discounted_price}</span>
+                  </div>
+                </div>
+                {r.status === "confirmed" && (
+                  <Button
+                    size="sm"
+                    className="mt-3 w-full"
+                    onClick={async () => {
+                      await supabase.from("reservations").update({ status: "completed" }).eq("id", r.id);
+                      toast.success("Commande marquée comme retirée !");
+                      fetchData();
+                    }}
+                  >
+                    <CheckCircle className="mr-1 h-3.5 w-3.5" /> Marquer comme retiré
+                  </Button>
+                )}
               </div>
             ))}
           </div>
