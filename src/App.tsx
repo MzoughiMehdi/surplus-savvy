@@ -9,6 +9,10 @@ import AuthPage from "./pages/AuthPage";
 import MerchantOnboarding from "./pages/MerchantOnboarding";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
+import AdminLayout from "./pages/admin/AdminLayout";
+import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminRestaurants from "./pages/admin/AdminRestaurants";
+import AdminAnalytics from "./pages/admin/AdminAnalytics";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +28,11 @@ const App = () => (
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/merchant-onboarding" element={<MerchantOnboarding />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<AdminDashboard />} />
+              <Route path="restaurants" element={<AdminRestaurants />} />
+              <Route path="analytics" element={<AdminAnalytics />} />
+            </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
