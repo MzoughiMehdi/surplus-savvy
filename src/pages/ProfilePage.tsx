@@ -73,10 +73,16 @@ const ProfilePage = () => {
             )}
           </>
         ) : (
-          <button onClick={handleAuth}
-            className="w-full rounded-xl bg-primary py-3.5 text-center text-sm font-bold text-primary-foreground shadow-md transition-transform active:scale-[0.98]">
-            Se connecter / S'inscrire
-          </button>
+          <>
+            <button onClick={handleAuth}
+              className="w-full rounded-xl bg-primary py-3.5 text-center text-sm font-bold text-primary-foreground shadow-md transition-transform active:scale-[0.98]">
+              Se connecter / S'inscrire
+            </button>
+            <button onClick={() => navigate("/merchant/onboarding")}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-border py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary">
+              <Store className="h-4 w-4" /> Vous êtes commerçant ?
+            </button>
+          </>
         )}
       </div>
 
