@@ -48,25 +48,47 @@ const Index = () => {
     const restaurantId = params.get("restaurant_id");
 
     if (paymentStatus === "success" && offerId && user) {
-      // Create reservation only after confirmed payment
       const createReservation = async () => {
-        const { error } = await supabase
-          .from("reservations")
-          .insert({
-            user_id: user.id,
-            offer_id: offerId,
-            restaurant_id: restaurantId || "",
-          });
+        try {
+          // Check if reservation already exists (avoid duplicates on page refresh)
+          const { data: existing } = await supabase
+            .from("reservations")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("offer_id", offerId)
+            .limit(1);
 
-        if (error) {
-          console.error("Error creating reservation:", error);
-          toast.error("Erreur lors de la création de la réservation");
-        } else {
-          toast.success("Paiement confirmé ! Votre réservation est prête.");
-          refetch(); // Refresh offers to update stock
+          if (existing && existing.length > 0) {
+            // Already created, just go to orders
+            setActiveTab("orders");
+            window.history.replaceState({}, "", window.location.pathname);
+            return;
+          }
+
+          const { data: newRes, error } = await supabase
+            .from("reservations")
+            .insert({
+              user_id: user.id,
+              offer_id: offerId,
+              restaurant_id: restaurantId || "",
+            })
+            .select("*, offers(title, discounted_price, pickup_start, pickup_end), restaurants(name)")
+            .single();
+
+          if (error) {
+            console.error("Error creating reservation:", error);
+            toast.error("Erreur lors de la création de la réservation");
+            setActiveTab("orders");
+          } else {
+            toast.success("Paiement confirmé ! Votre réservation est prête.");
+            refetch();
+            setActiveTab("orders");
+          }
+        } catch (err) {
+          console.error("Unexpected error:", err);
+          toast.error("Erreur inattendue");
+          setActiveTab("orders");
         }
-
-        setActiveTab("orders");
         window.history.replaceState({}, "", window.location.pathname);
       };
 
