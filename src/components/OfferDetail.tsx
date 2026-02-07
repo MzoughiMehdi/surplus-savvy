@@ -34,86 +34,88 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
 
     setReserving(true);
 
-    // Find the real DB offer by title match (mock offers don't have DB ids)
-    const { data: dbOffers } = await supabase
-      .from("offers")
-      .select("id, restaurant_id")
-      .eq("is_active", true)
-      .limit(1);
+    try {
+      // Start Stripe payment session
+      const { data: paymentData, error: paymentError } = await supabase.functions.invoke("create-payment", {
+        body: {
+          offerId: offer.id,
+          offerTitle: offer.title,
+          amount: offer.discountedPrice,
+        },
+      });
 
-    if (!dbOffers || dbOffers.length === 0) {
-      // Create reservation with a mock approach - use first available restaurant
-      const { data: restaurants } = await supabase
-        .from("restaurants")
-        .select("id")
-        .eq("status", "approved")
+      if (paymentError || !paymentData?.url) {
+        toast.error("Erreur lors du paiement");
+        setReserving(false);
+        return;
+      }
+
+      // Open Stripe checkout in new tab
+      window.open(paymentData.url, "_blank");
+
+      // Meanwhile create the reservation
+      // Find the real DB offer
+      const { data: dbOffers } = await supabase
+        .from("offers")
+        .select("id, restaurant_id")
+        .eq("is_active", true)
         .limit(1);
 
-      if (!restaurants || restaurants.length === 0) {
-        toast.error("Aucun restaurant disponible");
-        setReserving(false);
-        return;
-      }
+      if (!dbOffers || dbOffers.length === 0) {
+        const { data: restaurants } = await supabase
+          .from("restaurants")
+          .select("id")
+          .eq("status", "approved")
+          .limit(1);
 
-      // For mock offers, create an actual offer in DB first
-      const { data: newOffer, error: offerError } = await supabase.from("offers").insert({
-        restaurant_id: restaurants[0].id,
-        title: offer.title,
-        description: offer.description,
-        original_price: offer.originalPrice,
-        discounted_price: offer.discountedPrice,
-        quantity: offer.itemsLeft,
-        items_left: offer.itemsLeft,
-        pickup_start: offer.pickupStart,
-        pickup_end: offer.pickupEnd,
-        category: offer.category,
-      }).select().single();
+        if (!restaurants || restaurants.length === 0) {
+          toast.error("Aucun restaurant disponible");
+          setReserving(false);
+          return;
+        }
 
-      if (offerError || !newOffer) {
-        toast.error("Erreur lors de la réservation");
-        setReserving(false);
-        return;
-      }
-
-      const { data: res, error } = await supabase
-        .from("reservations")
-        .insert({
-          user_id: user.id,
-          offer_id: newOffer.id,
+        const { data: newOffer, error: offerError } = await supabase.from("offers").insert({
           restaurant_id: restaurants[0].id,
-        })
-        .select("pickup_code, status")
-        .single();
+          title: offer.title,
+          description: offer.description,
+          original_price: offer.originalPrice,
+          discounted_price: offer.discountedPrice,
+          quantity: offer.itemsLeft,
+          items_left: offer.itemsLeft,
+          pickup_start: offer.pickupStart,
+          pickup_end: offer.pickupEnd,
+          category: offer.category,
+        }).select().single();
 
-      if (error) {
-        toast.error(error.message);
-        setReserving(false);
-        return;
+        if (offerError || !newOffer) {
+          toast.error("Erreur lors de la réservation");
+          setReserving(false);
+          return;
+        }
+
+        const { data: res, error } = await supabase
+          .from("reservations")
+          .insert({ user_id: user.id, offer_id: newOffer.id, restaurant_id: restaurants[0].id })
+          .select("pickup_code, status")
+          .single();
+
+        if (error) { toast.error(error.message); setReserving(false); return; }
+        setReservation(res);
+        toast.success("Paiement initié & réservation confirmée !");
+      } else {
+        const dbOffer = dbOffers[0];
+        const { data: res, error } = await supabase
+          .from("reservations")
+          .insert({ user_id: user.id, offer_id: dbOffer.id, restaurant_id: dbOffer.restaurant_id })
+          .select("pickup_code, status")
+          .single();
+
+        if (error) { toast.error(error.message); setReserving(false); return; }
+        setReservation(res);
+        toast.success("Paiement initié & réservation confirmée !");
       }
-
-      setReservation(res);
-      toast.success("Réservation confirmée !");
-    } else {
-      // Use the real DB offer
-      const dbOffer = dbOffers[0];
-      const { data: res, error } = await supabase
-        .from("reservations")
-        .insert({
-          user_id: user.id,
-          offer_id: dbOffer.id,
-          restaurant_id: dbOffer.restaurant_id,
-        })
-        .select("pickup_code, status")
-        .single();
-
-      if (error) {
-        toast.error(error.message);
-        setReserving(false);
-        return;
-      }
-
-      setReservation(res);
-      toast.success("Réservation confirmée !");
+    } catch {
+      toast.error("Erreur inattendue");
     }
 
     setReserving(false);

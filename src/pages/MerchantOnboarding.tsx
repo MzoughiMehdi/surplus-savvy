@@ -2,8 +2,9 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Store, MapPin, Hash, Phone, ChevronRight, Check } from "lucide-react";
+import { ArrowLeft, Store, MapPin, Hash, Phone, ChevronRight, Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { PLANS, type PlanKey } from "@/hooks/useSubscription";
 
 const categories = [
   { id: "restaurant", label: "Restaurant", icon: "🍽️" },
@@ -83,7 +84,21 @@ const MerchantOnboarding = () => {
 
       if (error) throw error;
 
-      toast.success("Votre restaurant a été enregistré ! Essai gratuit de 14 jours activé.");
+      // Redirect to Stripe checkout for the selected plan
+      const plan = PLANS[selectedPlan as PlanKey];
+      const { data, error: checkoutError } = await supabase.functions.invoke("create-checkout", {
+        body: { priceId: plan.price_id },
+      });
+
+      if (checkoutError || !data?.url) {
+        // Even if Stripe fails, the restaurant is created with trial
+        toast.success("Restaurant enregistré ! Essai gratuit de 14 jours activé.");
+        navigate("/dashboard");
+        return;
+      }
+
+      toast.success("Restaurant enregistré ! Redirection vers le paiement...");
+      window.open(data.url, "_blank");
       navigate("/dashboard");
     } catch (err: any) {
       toast.error(err.message || "Une erreur est survenue");
