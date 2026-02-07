@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { Plus, Package, Clock, Trash2, Edit2, BarChart3, Store, LogOut, QrCode, CheckCircle, Users } from "lucide-react";
+import { Plus, Package, Clock, Trash2, Edit2, BarChart3, Store, LogOut, QrCode, CheckCircle, Users, CreditCard, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import NotificationBell from "@/components/NotificationBell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useSubscription, PLANS, type PlanKey } from "@/hooks/useSubscription";
 
 interface RestaurantData {
   id: string;
@@ -41,6 +42,7 @@ interface ReservationData {
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const subscription = useSubscription();
   const [restaurant, setRestaurant] = useState<RestaurantData | null>(null);
   const [offers, setOffers] = useState<OfferData[]>([]);
   const [reservations, setReservations] = useState<ReservationData[]>([]);
@@ -185,12 +187,41 @@ const Dashboard = () => {
       </div>
 
       {/* Status / Trial */}
-      {restaurant?.subscription_plan === "trial" && (
-        <div className="mt-4 rounded-xl bg-primary/10 p-4">
-          <p className="text-sm font-semibold text-primary">✨ Essai gratuit</p>
-          <p className="text-xs text-muted-foreground">{trialDaysLeft} jour{trialDaysLeft > 1 ? "s" : ""} restant{trialDaysLeft > 1 ? "s" : ""}</p>
+      {/* Subscription Management */}
+      <div className="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-primary" />
+              Abonnement
+            </p>
+            {subscription.subscribed ? (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Plan {subscription.planKey === "pro" ? "Pro" : "Basic"} · 
+                Renouvellement {subscription.subscriptionEnd ? new Date(subscription.subscriptionEnd).toLocaleDateString("fr-FR") : ""}
+              </p>
+            ) : (
+              <p className="mt-0.5 text-xs text-muted-foreground">Essai gratuit · {trialDaysLeft} jour{trialDaysLeft > 1 ? "s" : ""} restant{trialDaysLeft > 1 ? "s" : ""}</p>
+            )}
+          </div>
+          {subscription.subscribed ? (
+            <Button size="sm" variant="outline" onClick={async () => {
+              try { await subscription.openPortal(); } catch { toast.error("Impossible d'ouvrir le portail"); }
+            }}>
+              Gérer <ExternalLink className="ml-1 h-3 w-3" />
+            </Button>
+          ) : (
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={async () => {
+                try { await subscription.startCheckout("basic"); } catch { toast.error("Erreur de paiement"); }
+              }}>Basic 29€</Button>
+              <Button size="sm" onClick={async () => {
+                try { await subscription.startCheckout("pro"); } catch { toast.error("Erreur de paiement"); }
+              }}>Pro 59€</Button>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {restaurant?.status === "pending" && (
         <div className="mt-4 rounded-xl bg-warning/10 p-4">
