@@ -1,5 +1,10 @@
-import { ArrowLeft, Clock, MapPin, Star, ShoppingBag } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, Clock, MapPin, Star, ShoppingBag, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 import type { Offer } from "@/data/mockOffers";
+import ReservationConfirmation from "@/components/ReservationConfirmation";
 
 interface OfferDetailProps {
   offer: Offer;
@@ -7,16 +12,131 @@ interface OfferDetailProps {
 }
 
 const OfferDetail = ({ offer, onBack }: OfferDetailProps) => {
+  const { user } = useAuth();
+  const [reserving, setReserving] = useState(false);
+  const [reservation, setReservation] = useState<{
+    pickup_code: string;
+    status: string;
+  } | null>(null);
+
   const discount = Math.round((1 - offer.discountedPrice / offer.originalPrice) * 100);
+
+  const handleReserve = async () => {
+    if (!user) {
+      toast.error("Connectez-vous pour réserver");
+      return;
+    }
+    if (offer.itemsLeft <= 0) {
+      toast.error("Cette offre n'est plus disponible");
+      return;
+    }
+
+    setReserving(true);
+
+    // Find the real DB offer by title match (mock offers don't have DB ids)
+    const { data: dbOffers } = await supabase
+      .from("offers")
+      .select("id, restaurant_id")
+      .eq("is_active", true)
+      .limit(1);
+
+    if (!dbOffers || dbOffers.length === 0) {
+      // Create reservation with a mock approach - use first available restaurant
+      const { data: restaurants } = await supabase
+        .from("restaurants")
+        .select("id")
+        .eq("status", "approved")
+        .limit(1);
+
+      if (!restaurants || restaurants.length === 0) {
+        toast.error("Aucun restaurant disponible");
+        setReserving(false);
+        return;
+      }
+
+      // For mock offers, create an actual offer in DB first
+      const { data: newOffer, error: offerError } = await supabase.from("offers").insert({
+        restaurant_id: restaurants[0].id,
+        title: offer.title,
+        description: offer.description,
+        original_price: offer.originalPrice,
+        discounted_price: offer.discountedPrice,
+        quantity: offer.itemsLeft,
+        items_left: offer.itemsLeft,
+        pickup_start: offer.pickupStart,
+        pickup_end: offer.pickupEnd,
+        category: offer.category,
+      }).select().single();
+
+      if (offerError || !newOffer) {
+        toast.error("Erreur lors de la réservation");
+        setReserving(false);
+        return;
+      }
+
+      const { data: res, error } = await supabase
+        .from("reservations")
+        .insert({
+          user_id: user.id,
+          offer_id: newOffer.id,
+          restaurant_id: restaurants[0].id,
+        })
+        .select("pickup_code, status")
+        .single();
+
+      if (error) {
+        toast.error(error.message);
+        setReserving(false);
+        return;
+      }
+
+      setReservation(res);
+      toast.success("Réservation confirmée !");
+    } else {
+      // Use the real DB offer
+      const dbOffer = dbOffers[0];
+      const { data: res, error } = await supabase
+        .from("reservations")
+        .insert({
+          user_id: user.id,
+          offer_id: dbOffer.id,
+          restaurant_id: dbOffer.restaurant_id,
+        })
+        .select("pickup_code, status")
+        .single();
+
+      if (error) {
+        toast.error(error.message);
+        setReserving(false);
+        return;
+      }
+
+      setReservation(res);
+      toast.success("Réservation confirmée !");
+    }
+
+    setReserving(false);
+  };
+
+  if (reservation) {
+    return (
+      <ReservationConfirmation
+        pickupCode={reservation.pickup_code}
+        offerTitle={offer.title}
+        restaurantName={offer.restaurantName}
+        pickupStart={offer.pickupStart}
+        pickupEnd={offer.pickupEnd}
+        price={offer.discountedPrice}
+        status={reservation.status}
+        onBack={onBack}
+      />
+    );
+  }
 
   return (
     <div className="animate-fade-in-up min-h-screen bg-background pb-28">
       <div className="relative">
-        <img
-          src={offer.image}
-          alt={offer.title}
-          className="h-64 w-full object-cover"
-        />
+        <img src={offer.image} alt={offer.title} className="h-64 w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
         <button
           onClick={onBack}
@@ -53,12 +173,8 @@ const OfferDetail = ({ offer, onBack }: OfferDetailProps) => {
           </div>
         </div>
 
-        <h1 className="mt-5 font-display text-2xl font-bold text-foreground">
-          {offer.title}
-        </h1>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          {offer.description}
-        </p>
+        <h1 className="mt-5 font-display text-2xl font-bold text-foreground">{offer.title}</h1>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{offer.description}</p>
 
         <div className="mt-5 rounded-xl bg-eco-light p-4">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -90,8 +206,18 @@ const OfferDetail = ({ offer, onBack }: OfferDetailProps) => {
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 px-5 py-4 backdrop-blur-sm">
-        <button className="w-full rounded-xl bg-primary py-4 text-center text-base font-bold text-primary-foreground shadow-lg transition-transform active:scale-[0.98]">
-          Réserver pour €{offer.discountedPrice.toFixed(2)}
+        <button
+          onClick={handleReserve}
+          disabled={reserving || offer.itemsLeft <= 0}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 text-center text-base font-bold text-primary-foreground shadow-lg transition-transform active:scale-[0.98] disabled:opacity-50"
+        >
+          {reserving ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" /> Réservation en cours...
+            </>
+          ) : (
+            `Réserver pour €${offer.discountedPrice.toFixed(2)}`
+          )}
         </button>
       </div>
     </div>

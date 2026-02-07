@@ -1,4 +1,4 @@
-import { Home, Search, Heart, User } from "lucide-react";
+import { Home, Search, Heart, User, ShoppingBag } from "lucide-react";
 
 interface BottomNavProps {
   active: string;
@@ -8,6 +8,7 @@ interface BottomNavProps {
 const tabs = [
   { id: "home", label: "Accueil", icon: Home },
   { id: "explore", label: "Explorer", icon: Search },
+  { id: "orders", label: "Commandes", icon: ShoppingBag },
   { id: "favorites", label: "Favoris", icon: Heart },
   { id: "profile", label: "Profil", icon: User },
 ];

@@ -10,6 +10,7 @@ import MapView from "@/components/MapView";
 import ExplorePage from "@/pages/ExplorePage";
 import FavoritesPage from "@/pages/FavoritesPage";
 import ProfilePage from "@/pages/ProfilePage";
+import OrdersPage from "@/pages/OrdersPage";
 import { mockOffers, type Offer } from "@/data/mockOffers";
 
 const Index = () => {
@@ -46,6 +47,8 @@ const Index = () => {
     switch (activeTab) {
       case "explore":
         return <ExplorePage />;
+      case "orders":
+        return <OrdersPage />;
       case "favorites":
         return <FavoritesPage />;
       case "profile":
