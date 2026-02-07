@@ -38,6 +38,8 @@ serve(async (req) => {
       customerId = customers.data[0].id;
     }
 
+    const origin = req.headers.get("origin") || "http://localhost:5173";
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
@@ -52,8 +54,8 @@ serve(async (req) => {
         },
       ],
       mode: "payment",
-      success_url: `${req.headers.get("origin")}/?payment=success&offer_id=${offerId}&restaurant_id=${restaurantId || ""}`,
-      cancel_url: `${req.headers.get("origin")}/?payment=cancelled`,
+      ui_mode: "embedded",
+      return_url: `${origin}/checkout-return?session_id={CHECKOUT_SESSION_ID}`,
       metadata: {
         offer_id: offerId,
         user_id: user.id,
@@ -61,9 +63,9 @@ serve(async (req) => {
       },
     });
 
-    console.log("[CREATE-PAYMENT] Session created for offer:", offerId);
+    console.log("[CREATE-PAYMENT] Embedded session created for offer:", offerId);
 
-    return new Response(JSON.stringify({ url: session.url }), {
+    return new Response(JSON.stringify({ clientSecret: session.client_secret }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
