@@ -65,9 +65,9 @@ const ProfilePage = () => {
                   className="w-full rounded-xl bg-accent py-3.5 text-center text-sm font-bold text-accent-foreground shadow-md transition-transform active:scale-[0.98]">
                   <span className="flex items-center justify-center gap-2"><Store className="h-4 w-4" /> Tableau de bord restaurant</span>
                 </button>
-                <button onClick={() => navigate("/merchant-onboarding")}
-                  className="w-full rounded-xl border border-border py-3 text-center text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary">
-                  Gérer mon restaurant
+                <button onClick={() => navigate("/dashboard")}
+                  className="w-full rounded-xl bg-accent py-3.5 text-center text-sm font-bold text-accent-foreground shadow-md transition-transform active:scale-[0.98]">
+                  <span className="flex items-center justify-center gap-2"><Store className="h-4 w-4" /> Tableau de bord restaurant</span>
                 </button>
               </>
             )}

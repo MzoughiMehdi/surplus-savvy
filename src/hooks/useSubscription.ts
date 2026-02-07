@@ -2,29 +2,24 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-// Stripe product/price mapping
-export const PLANS = {
-  basic: {
-    product_id: "prod_Tw6HmbkdYzNV3c",
-    price_id: "price_1SyE4WPrdr7HLEmYbLvrjNIR",
-    name: "Basic",
-    price: 29,
-  },
-  pro: {
-    product_id: "prod_Tw6HzLDHsefI6s",
-    price_id: "price_1SyE4dPrdr7HLEmYBfXG9D9r",
-    name: "Pro",
-    price: 59,
-  },
+// Single Stripe product/price
+export const MERCHANT_PLAN = {
+  product_id: "prod_Tw6HmbkdYzNV3c",
+  price_id: "price_1SyE4WPrdr7HLEmYbLvrjNIR",
+  name: "Commerçant",
+  price: 29,
+  features: [
+    "Offres illimitées",
+    "Tableau de bord",
+    "Support email",
+    "14 jours d'essai gratuit",
+  ],
 } as const;
-
-export type PlanKey = keyof typeof PLANS;
 
 interface SubscriptionState {
   subscribed: boolean;
   productId: string | null;
   subscriptionEnd: string | null;
-  planKey: PlanKey | null;
   loading: boolean;
 }
 
@@ -34,13 +29,12 @@ export const useSubscription = () => {
     subscribed: false,
     productId: null,
     subscriptionEnd: null,
-    planKey: null,
     loading: true,
   });
 
   const checkSubscription = useCallback(async () => {
     if (!user) {
-      setState({ subscribed: false, productId: null, subscriptionEnd: null, planKey: null, loading: false });
+      setState({ subscribed: false, productId: null, subscriptionEnd: null, loading: false });
       return;
     }
 
@@ -48,15 +42,10 @@ export const useSubscription = () => {
       const { data, error } = await supabase.functions.invoke("check-subscription");
       if (error) throw error;
 
-      const planKey = Object.entries(PLANS).find(
-        ([, v]) => v.product_id === data.product_id
-      )?.[0] as PlanKey | undefined;
-
       setState({
         subscribed: data.subscribed,
         productId: data.product_id,
         subscriptionEnd: data.subscription_end,
-        planKey: planKey ?? null,
         loading: false,
       });
     } catch {
@@ -70,13 +59,12 @@ export const useSubscription = () => {
     return () => clearInterval(interval);
   }, [checkSubscription]);
 
-  const startCheckout = async (planKey: PlanKey) => {
-    const plan = PLANS[planKey];
+  const startCheckout = async () => {
     const { data, error } = await supabase.functions.invoke("create-checkout", {
-      body: { priceId: plan.price_id },
+      body: { priceId: MERCHANT_PLAN.price_id },
     });
     if (error) throw error;
-    if (data?.url) window.open(data.url, "_blank");
+    if (data?.url) window.location.href = data.url;
   };
 
   const openPortal = async () => {
