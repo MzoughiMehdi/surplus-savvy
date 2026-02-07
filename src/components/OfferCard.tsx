@@ -28,7 +28,7 @@ const OfferCard = ({ offer, onClick, index }: OfferCardProps) => {
             -{discount}%
           </div>
           <div className="absolute bottom-3 right-3 rounded-full bg-foreground/70 px-2.5 py-1 text-xs font-medium text-primary-foreground backdrop-blur-sm">
-            {offer.itemsLeft} left
+            {offer.itemsLeft} restant{offer.itemsLeft > 1 ? "s" : ""}
           </div>
         </div>
 

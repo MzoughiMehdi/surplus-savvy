@@ -6,10 +6,10 @@ interface BottomNavProps {
 }
 
 const tabs = [
-  { id: "home", label: "Home", icon: Home },
-  { id: "explore", label: "Explore", icon: Search },
-  { id: "favorites", label: "Saved", icon: Heart },
-  { id: "profile", label: "Profile", icon: User },
+  { id: "home", label: "Accueil", icon: Home },
+  { id: "explore", label: "Explorer", icon: Search },
+  { id: "favorites", label: "Favoris", icon: Heart },
+  { id: "profile", label: "Profil", icon: User },
 ];
 
 const BottomNav = ({ active, onNavigate }: BottomNavProps) => {

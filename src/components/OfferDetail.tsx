@@ -25,7 +25,7 @@ const OfferDetail = ({ offer, onBack }: OfferDetailProps) => {
           <ArrowLeft className="h-5 w-5 text-foreground" />
         </button>
         <div className="absolute bottom-4 left-4 rounded-full bg-accent px-3 py-1 text-sm font-bold text-accent-foreground">
-          Save {discount}%
+          -{discount}%
         </div>
       </div>
 
@@ -43,7 +43,7 @@ const OfferDetail = ({ offer, onBack }: OfferDetailProps) => {
                 <Star className="h-3.5 w-3.5 fill-warning text-warning" />
                 <span className="font-medium text-foreground">{offer.rating}</span>
               </div>
-              <span>({offer.reviewCount} reviews)</span>
+              <span>({offer.reviewCount} avis)</span>
               <span>·</span>
               <div className="flex items-center gap-0.5">
                 <MapPin className="h-3 w-3" />
@@ -63,20 +63,20 @@ const OfferDetail = ({ offer, onBack }: OfferDetailProps) => {
         <div className="mt-5 rounded-xl bg-eco-light p-4">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
             <Clock className="h-4 w-4 text-primary" />
-            Pickup window
+            Créneau de retrait
           </div>
           <p className="mt-1 text-lg font-bold text-primary">
-            Today, {offer.pickupStart} – {offer.pickupEnd}
+            Aujourd'hui, {offer.pickupStart} – {offer.pickupEnd}
           </p>
         </div>
 
         <div className="mt-4 flex items-center justify-between rounded-xl bg-secondary p-4">
           <div>
-            <p className="text-xs text-muted-foreground">Original price</p>
+            <p className="text-xs text-muted-foreground">Prix original</p>
             <p className="text-sm text-muted-foreground line-through">€{offer.originalPrice.toFixed(2)}</p>
           </div>
           <div className="text-right">
-            <p className="text-xs text-muted-foreground">You pay</p>
+            <p className="text-xs text-muted-foreground">Vous payez</p>
             <p className="text-2xl font-bold text-primary">€{offer.discountedPrice.toFixed(2)}</p>
           </div>
         </div>
@@ -84,14 +84,14 @@ const OfferDetail = ({ offer, onBack }: OfferDetailProps) => {
         <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
           <ShoppingBag className="h-4 w-4" />
           <span>
-            <strong className="text-accent">{offer.itemsLeft}</strong> bags left – hurry!
+            Plus que <strong className="text-accent">{offer.itemsLeft}</strong> paniers – dépêchez-vous !
           </span>
         </div>
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 px-5 py-4 backdrop-blur-sm">
         <button className="w-full rounded-xl bg-primary py-4 text-center text-base font-bold text-primary-foreground shadow-lg transition-transform active:scale-[0.98]">
-          Reserve for €{offer.discountedPrice.toFixed(2)}
+          Réserver pour €{offer.discountedPrice.toFixed(2)}
         </button>
       </div>
     </div>

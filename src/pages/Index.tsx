@@ -33,10 +33,10 @@ const Index = () => {
       <div className="px-5">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-xl font-bold text-foreground">
-            Available now
+            Disponible maintenant
           </h2>
           <span className="text-sm font-medium text-muted-foreground">
-            {filteredOffers.length} offers
+            {filteredOffers.length} offres
           </span>
         </div>
 
