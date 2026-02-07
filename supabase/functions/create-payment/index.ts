@@ -25,7 +25,7 @@ serve(async (req) => {
     const user = data.user;
     if (!user?.email) throw new Error("User not authenticated");
 
-    const { offerId, offerTitle, amount } = await req.json();
+    const { offerId, offerTitle, amount, restaurantId } = await req.json();
     if (!offerId || !amount) throw new Error("Missing offerId or amount");
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
@@ -52,11 +52,12 @@ serve(async (req) => {
         },
       ],
       mode: "payment",
-      success_url: `${req.headers.get("origin")}/?payment=success&offer_id=${offerId}`,
+      success_url: `${req.headers.get("origin")}/?payment=success&offer_id=${offerId}&restaurant_id=${restaurantId || ""}`,
       cancel_url: `${req.headers.get("origin")}/?payment=cancelled`,
       metadata: {
         offer_id: offerId,
         user_id: user.id,
+        restaurant_id: restaurantId || "",
       },
     });
 

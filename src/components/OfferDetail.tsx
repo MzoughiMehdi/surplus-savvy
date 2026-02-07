@@ -30,27 +30,13 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
     setReserving(true);
 
     try {
-      // Create reservation using real DB offer id
-      const { error: resError } = await supabase
-        .from("reservations")
-        .insert({
-          user_id: user.id,
-          offer_id: offer.id,
-          restaurant_id: offer.restaurantId,
-        });
-
-      if (resError) {
-        toast.error(resError.message);
-        setReserving(false);
-        return;
-      }
-
-      // Redirect to Stripe payment
+      // Only create Stripe session — reservation will be created AFTER successful payment
       const { data: paymentData, error: paymentError } = await supabase.functions.invoke("create-payment", {
         body: {
           offerId: offer.id,
           offerTitle: offer.title,
           amount: offer.discountedPrice,
+          restaurantId: offer.restaurantId,
         },
       });
 
@@ -63,9 +49,8 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
       window.location.href = paymentData.url;
     } catch {
       toast.error("Erreur inattendue");
+      setReserving(false);
     }
-
-    setReserving(false);
   };
 
   return (
