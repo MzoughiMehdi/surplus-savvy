@@ -94,8 +94,33 @@ const Dashboard = () => {
 
   const handleCreateOffer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!restaurant || !title.trim() || !originalPrice || !discountedPrice) {
-      toast.error("Remplissez tous les champs obligatoires");
+
+    const origPrice = parseFloat(originalPrice);
+    const discPrice = parseFloat(discountedPrice);
+    const qty = parseInt(quantity);
+
+    if (!restaurant || !title.trim()) {
+      toast.error("Titre requis");
+      return;
+    }
+    if (isNaN(origPrice) || origPrice <= 0 || origPrice > 10000) {
+      toast.error("Prix original invalide (0.01€ - 10 000€)");
+      return;
+    }
+    if (isNaN(discPrice) || discPrice <= 0 || discPrice > 10000) {
+      toast.error("Prix réduit invalide (0.01€ - 10 000€)");
+      return;
+    }
+    if (discPrice >= origPrice) {
+      toast.error("Le prix réduit doit être inférieur au prix original");
+      return;
+    }
+    if (isNaN(qty) || qty <= 0 || qty > 1000) {
+      toast.error("Quantité invalide (1-1000)");
+      return;
+    }
+    if (pickupStart >= pickupEnd) {
+      toast.error("L'heure de fin doit être après l'heure de début");
       return;
     }
 
@@ -103,10 +128,10 @@ const Dashboard = () => {
       restaurant_id: restaurant.id,
       title: title.trim(),
       description: description.trim() || null,
-      original_price: parseFloat(originalPrice),
-      discounted_price: parseFloat(discountedPrice),
-      quantity: parseInt(quantity),
-      items_left: parseInt(quantity),
+      original_price: origPrice,
+      discounted_price: discPrice,
+      quantity: qty,
+      items_left: qty,
       pickup_start: pickupStart,
       pickup_end: pickupEnd,
       category,

@@ -312,6 +312,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_all_restaurant_ratings: {
+        Args: never
+        Returns: {
+          avg_rating: number
+          restaurant_name: string
+          review_count: number
+        }[]
+      }
+      get_restaurant_rating: {
+        Args: { p_restaurant_id: string }
+        Returns: {
+          avg_rating: number
+          review_count: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

@@ -36,14 +36,11 @@ export const useRestaurantRating = (restaurantId: string | undefined) => {
   useEffect(() => {
     if (!restaurantId) return;
     supabase
-      .from("reviews")
-      .select("rating")
-      .eq("restaurant_id", restaurantId)
+      .rpc("get_restaurant_rating", { p_restaurant_id: restaurantId })
       .then(({ data }) => {
-        if (data && data.length > 0) {
-          const sum = data.reduce((a, r) => a + r.rating, 0);
-          setAvg(Math.round((sum / data.length) * 10) / 10);
-          setCount(data.length);
+        if (data && data.length > 0 && data[0].avg_rating !== null) {
+          setAvg(Number(data[0].avg_rating));
+          setCount(Number(data[0].review_count));
         }
       });
   }, [restaurantId]);
