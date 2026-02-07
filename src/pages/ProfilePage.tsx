@@ -1,4 +1,5 @@
-import { User, ShoppingBag, Settings, HelpCircle, LogOut, ChevronRight, Leaf } from "lucide-react";
+import { User, ShoppingBag, Settings, HelpCircle, LogOut, ChevronRight, Leaf, Store } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
@@ -32,7 +33,12 @@ const ProfilePage = () => {
         <div className="flex-1">
           {user ? (
             <>
-              <p className="font-semibold text-foreground">{profile?.full_name || user.email}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-foreground">{profile?.full_name || user.email}</p>
+                <Badge variant={profile?.role === "merchant" ? "default" : "secondary"} className="text-[10px]">
+                  {profile?.role === "merchant" ? "Commerçant" : profile?.role === "admin" ? "Admin" : "Consommateur"}
+                </Badge>
+              </div>
               <p className="text-sm text-muted-foreground">{user.email}</p>
             </>
           ) : (
@@ -54,10 +60,16 @@ const ProfilePage = () => {
               </button>
             )}
             {profile?.role === "merchant" && (
-              <button onClick={() => navigate("/dashboard")}
-                className="w-full rounded-xl bg-accent py-3.5 text-center text-sm font-bold text-accent-foreground shadow-md transition-transform active:scale-[0.98]">
-                Accéder au tableau de bord restaurant
-              </button>
+              <>
+                <button onClick={() => navigate("/dashboard")}
+                  className="w-full rounded-xl bg-accent py-3.5 text-center text-sm font-bold text-accent-foreground shadow-md transition-transform active:scale-[0.98]">
+                  <span className="flex items-center justify-center gap-2"><Store className="h-4 w-4" /> Tableau de bord restaurant</span>
+                </button>
+                <button onClick={() => navigate("/merchant/onboarding")}
+                  className="w-full rounded-xl border border-border py-3 text-center text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary">
+                  Gérer mon restaurant
+                </button>
+              </>
             )}
           </>
         ) : (
