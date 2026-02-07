@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import HeroSection from "@/components/HeroSection";
 import CategoryFilter from "@/components/CategoryFilter";
 import NotificationBell from "@/components/NotificationBell";
@@ -20,6 +20,16 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [showMap, setShowMap] = useState(false);
   const { ratings } = useAllRestaurantRatings();
+
+  // Handle Stripe payment return — navigate to orders tab
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("payment") === "success") {
+      setActiveTab("orders");
+      // Clean URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
 
   const filteredOffers = useMemo(
     () =>

@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { Offer } from "@/data/mockOffers";
-import ReservationConfirmation from "@/components/ReservationConfirmation";
 
 interface OfferDetailProps {
   offer: Offer;
@@ -15,10 +14,6 @@ interface OfferDetailProps {
 const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
   const { user } = useAuth();
   const [reserving, setReserving] = useState(false);
-  const [reservation, setReservation] = useState<{
-    pickup_code: string;
-    status: string;
-  } | null>(null);
 
   const discount = Math.round((1 - offer.discountedPrice / offer.originalPrice) * 100);
 
@@ -35,33 +30,21 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
     setReserving(true);
 
     try {
-      // Start Stripe payment session
-      const { data: paymentData, error: paymentError } = await supabase.functions.invoke("create-payment", {
-        body: {
-          offerId: offer.id,
-          offerTitle: offer.title,
-          amount: offer.discountedPrice,
-        },
-      });
+      // 1. First create the reservation in DB
+      // Find a matching DB offer or create one
+      let dbOfferId: string;
+      let dbRestaurantId: string;
 
-      if (paymentError || !paymentData?.url) {
-        toast.error("Erreur lors du paiement");
-        setReserving(false);
-        return;
-      }
-
-      // Open Stripe checkout in new tab
-      window.open(paymentData.url, "_blank");
-
-      // Meanwhile create the reservation
-      // Find the real DB offer
       const { data: dbOffers } = await supabase
         .from("offers")
         .select("id, restaurant_id")
         .eq("is_active", true)
         .limit(1);
 
-      if (!dbOffers || dbOffers.length === 0) {
+      if (dbOffers && dbOffers.length > 0) {
+        dbOfferId = dbOffers[0].id;
+        dbRestaurantId = dbOffers[0].restaurant_id;
+      } else {
         const { data: restaurants } = await supabase
           .from("restaurants")
           .select("id")
@@ -92,28 +75,38 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
           setReserving(false);
           return;
         }
-
-        const { data: res, error } = await supabase
-          .from("reservations")
-          .insert({ user_id: user.id, offer_id: newOffer.id, restaurant_id: restaurants[0].id })
-          .select("pickup_code, status")
-          .single();
-
-        if (error) { toast.error(error.message); setReserving(false); return; }
-        setReservation(res);
-        toast.success("Paiement initié & réservation confirmée !");
-      } else {
-        const dbOffer = dbOffers[0];
-        const { data: res, error } = await supabase
-          .from("reservations")
-          .insert({ user_id: user.id, offer_id: dbOffer.id, restaurant_id: dbOffer.restaurant_id })
-          .select("pickup_code, status")
-          .single();
-
-        if (error) { toast.error(error.message); setReserving(false); return; }
-        setReservation(res);
-        toast.success("Paiement initié & réservation confirmée !");
+        dbOfferId = newOffer.id;
+        dbRestaurantId = restaurants[0].id;
       }
+
+      // Create reservation
+      const { error: resError } = await supabase
+        .from("reservations")
+        .insert({ user_id: user.id, offer_id: dbOfferId, restaurant_id: dbRestaurantId });
+
+      if (resError) {
+        toast.error(resError.message);
+        setReserving(false);
+        return;
+      }
+
+      // 2. Then redirect to Stripe payment (same tab)
+      const { data: paymentData, error: paymentError } = await supabase.functions.invoke("create-payment", {
+        body: {
+          offerId: offer.id,
+          offerTitle: offer.title,
+          amount: offer.discountedPrice,
+        },
+      });
+
+      if (paymentError || !paymentData?.url) {
+        toast.error("Erreur lors du paiement");
+        setReserving(false);
+        return;
+      }
+
+      // Redirect to Stripe checkout on same tab — reservation already saved
+      window.location.href = paymentData.url;
     } catch {
       toast.error("Erreur inattendue");
     }
@@ -121,20 +114,6 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
     setReserving(false);
   };
 
-  if (reservation) {
-    return (
-      <ReservationConfirmation
-        pickupCode={reservation.pickup_code}
-        offerTitle={offer.title}
-        restaurantName={offer.restaurantName}
-        pickupStart={offer.pickupStart}
-        pickupEnd={offer.pickupEnd}
-        price={offer.discountedPrice}
-        status={reservation.status}
-        onBack={onBack}
-      />
-    );
-  }
 
   return (
     <div className="animate-fade-in-up min-h-screen bg-background pb-28">
