@@ -6,6 +6,7 @@ import { Plus, Package, Clock, Trash2, Edit2, BarChart3, Store, LogOut, QrCode, 
 import { toast } from "sonner";
 import NotificationBell from "@/components/NotificationBell";
 import RestaurantImageUpload from "@/components/RestaurantImageUpload";
+import OfferImageUpload from "@/components/OfferImageUpload";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useSubscription, MERCHANT_PLAN } from "@/hooks/useSubscription";
@@ -29,6 +30,7 @@ interface OfferData {
   pickup_end: string;
   is_active: boolean;
   category: string;
+  image_url: string | null;
 }
 
 interface ReservationData {
@@ -60,6 +62,7 @@ const Dashboard = () => {
   const [pickupStart, setPickupStart] = useState("18:00");
   const [pickupEnd, setPickupEnd] = useState("20:00");
   const [category, setCategory] = useState("meals");
+  const [offerImageUrl, setOfferImageUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) { navigate("/auth"); return; }
@@ -140,13 +143,15 @@ const Dashboard = () => {
       pickup_start: pickupStart,
       pickup_end: pickupEnd,
       category,
+      image_url: offerImageUrl,
     });
 
     if (error) { toast.error(error.message); return; }
 
     toast.success("Offre créée !");
     setShowForm(false);
-    setTitle(""); setDescription(""); setOriginalPrice(""); setDiscountedPrice("");
+    setTitle(""); setDescription(""); setOriginalPrice(""); setDiscountedPrice(""); setOfferImageUrl(null);
+    setQuantity("1"); setPickupStart("18:00"); setPickupEnd("20:00");
     fetchData();
   };
 
@@ -269,6 +274,9 @@ const Dashboard = () => {
       {/* Create offer form */}
       {showForm && (
         <form onSubmit={handleCreateOffer} className="mt-4 animate-fade-in-up space-y-3 rounded-2xl bg-card p-4 shadow-sm">
+          {user && (
+            <OfferImageUpload imageUrl={offerImageUrl} onImageChange={setOfferImageUrl} userId={user.id} />
+          )}
           <input type="text" placeholder="Titre de l'offre *" value={title} onChange={(e) => setTitle(e.target.value)}
             className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" />
           <textarea placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
@@ -301,30 +309,47 @@ const Dashboard = () => {
         ) : (
           <div className="mt-3 space-y-3">
             {offers.map((offer) => (
-              <div key={offer.id} className={`rounded-xl bg-card p-4 shadow-sm ${!offer.is_active ? "opacity-50" : ""}`}>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{offer.title}</p>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      {offer.pickup_start} – {offer.pickup_end}
+              <div key={offer.id} className={`rounded-xl bg-card shadow-sm overflow-hidden ${!offer.is_active ? "opacity-50" : ""}`}>
+                {offer.image_url && (
+                  <img src={offer.image_url} alt={offer.title} className="h-28 w-full object-cover" />
+                )}
+                <div className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{offer.title}</p>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {offer.pickup_start} – {offer.pickup_end}
+                      </div>
+                      <div className="mt-1 flex items-baseline gap-2">
+                        <span className="text-xs text-muted-foreground line-through">€{offer.original_price}</span>
+                        <span className="text-sm font-bold text-primary">€{offer.discounted_price}</span>
+                        <span className="text-xs text-muted-foreground">· {offer.items_left} restant(s)</span>
+                      </div>
                     </div>
-                    <div className="mt-1 flex items-baseline gap-2">
-                      <span className="text-xs text-muted-foreground line-through">€{offer.original_price}</span>
-                      <span className="text-sm font-bold text-primary">€{offer.discounted_price}</span>
-                      <span className="text-xs text-muted-foreground">· {offer.items_left} restant(s)</span>
+                    <div className="flex gap-1">
+                      <button onClick={() => toggleOffer(offer.id, offer.is_active)}
+                        className="rounded-lg bg-secondary p-2 text-muted-foreground hover:text-foreground">
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => deleteOffer(offer.id)}
+                        className="rounded-lg bg-secondary p-2 text-muted-foreground hover:text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex gap-1">
-                    <button onClick={() => toggleOffer(offer.id, offer.is_active)}
-                      className="rounded-lg bg-secondary p-2 text-muted-foreground hover:text-foreground">
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </button>
-                    <button onClick={() => deleteOffer(offer.id)}
-                      className="rounded-lg bg-secondary p-2 text-muted-foreground hover:text-destructive">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                  {user && (
+                    <div className="mt-3">
+                      <OfferImageUpload
+                        imageUrl={offer.image_url}
+                        onImageChange={(url) => {
+                          setOffers((prev) => prev.map((o) => o.id === offer.id ? { ...o, image_url: url } : o));
+                        }}
+                        offerId={offer.id}
+                        userId={user.id}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
