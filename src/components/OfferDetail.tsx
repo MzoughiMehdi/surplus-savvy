@@ -82,8 +82,8 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
           </div>
         </div>
 
-        <h1 className="mt-5 font-display text-2xl font-bold text-foreground">{offer.title}</h1>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{offer.description}</p>
+        <h1 className="mt-5 font-display text-2xl font-bold text-foreground">🎁 {offer.title}</h1>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Un assortiment surprise des meilleurs produits du jour. Le contenu varie chaque jour !</p>
 
         <div className="mt-5 rounded-xl bg-eco-light p-4">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">

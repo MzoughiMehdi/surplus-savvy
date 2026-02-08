@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      daily_overrides: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          is_suspended: boolean
+          pickup_end: string | null
+          pickup_start: string | null
+          quantity: number | null
+          restaurant_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          is_suspended?: boolean
+          pickup_end?: string | null
+          pickup_start?: string | null
+          quantity?: number | null
+          restaurant_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          is_suspended?: boolean
+          pickup_end?: string | null
+          pickup_start?: string | null
+          quantity?: number | null
+          restaurant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_overrides_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string
@@ -51,6 +92,7 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string
+          date: string | null
           description: string | null
           discounted_price: number
           id: string
@@ -68,6 +110,7 @@ export type Database = {
         Insert: {
           category?: string | null
           created_at?: string
+          date?: string | null
           description?: string | null
           discounted_price: number
           id?: string
@@ -85,6 +128,7 @@ export type Database = {
         Update: {
           category?: string | null
           created_at?: string
+          date?: string | null
           description?: string | null
           discounted_price?: number
           id?: string
@@ -359,6 +403,50 @@ export type Database = {
             foreignKeyName: "reviews_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      surprise_bag_config: {
+        Row: {
+          base_price: number
+          created_at: string
+          daily_quantity: number
+          id: string
+          is_active: boolean
+          pickup_end: string
+          pickup_start: string
+          restaurant_id: string
+          updated_at: string
+        }
+        Insert: {
+          base_price: number
+          created_at?: string
+          daily_quantity?: number
+          id?: string
+          is_active?: boolean
+          pickup_end?: string
+          pickup_start?: string
+          restaurant_id: string
+          updated_at?: string
+        }
+        Update: {
+          base_price?: number
+          created_at?: string
+          daily_quantity?: number
+          id?: string
+          is_active?: boolean
+          pickup_end?: string
+          pickup_start?: string
+          restaurant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "surprise_bag_config_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: true
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
