@@ -1,115 +1,57 @@
 
+# Correction des commandes, stock et paiements automatiques
 
-# Correction commandes + Stripe Connect pour les paiements restaurants
+## Probleme 1 : Stock non mis a jour
 
-## 1. Correction de l'onglet commandes
+Les fonctions de base de donnees (`handle_new_reservation`, `handle_reservation_cancel`, `notify_new_offer`, `notify_restaurant_status_change`) existent mais **aucun trigger n'est attache aux tables**. C'est pour cela que le stock ne se decremente pas quand une reservation est creee.
 
-**Probleme** : Apres un paiement, l'utilisateur est redirige vers `/?tab=orders` mais les donnees ne se rechargent pas.
+**Solution** : Creer une migration SQL pour attacher tous les triggers manquants :
+- `handle_new_reservation` sur INSERT dans `reservations` (decremente `items_left`, notifie le restaurateur)
+- `handle_reservation_cancel` sur UPDATE dans `reservations` (re-incremente `items_left` si annulation)
+- `notify_new_offer` sur INSERT dans `offers`
+- `notify_restaurant_status_change` sur UPDATE dans `restaurants`
 
-**Solution** : Convertir `OrdersPage.tsx` pour utiliser `useQuery` avec la cle `["reservations", user.id]`, puis dans `CheckoutReturnPage.tsx` invalider cette cle apres la creation de la reservation.
+## Probleme 2 : Bouton "Mes commandes" dans le profil
 
-## 2. Systeme de commission avec Stripe Connect
+Dans `ProfilePage.tsx`, les elements du menu (dont "Mes commandes") sont des boutons sans gestionnaire `onClick`. Cliquer dessus ne fait rien.
 
-Stripe Connect permet de diviser automatiquement chaque paiement entre la plateforme et le restaurant. Pas de virement manuel : Stripe s'occupe de tout.
+**Solution** : Ajouter un `onClick` sur "Mes commandes" pour que ca bascule vers l'onglet commandes. Comme `ProfilePage` est affiche dans `Index` via un systeme d'onglets (pas via le routeur), il faut passer une callback `onNavigate` en prop depuis `Index.tsx` pour changer l'onglet actif vers "orders".
 
-### Comment ca marche
+## Probleme 3 : Payouts pas marques automatiquement
 
-```text
-Exemple : commande de 10 EUR, taux plateforme = 50%
+Dans `create-payment`, le payout est cree avec `status: "pending"` meme quand Stripe Connect gere le transfert automatiquement. Comme Stripe Connect transfere les fonds au moment du paiement, quand un `stripe_account_id` existe, le statut devrait etre "paid" directement.
 
-Client paie 10 EUR via Stripe
-          |
-          v
-Stripe divise automatiquement :
-  - 5 EUR pour la plateforme (vous)
-  - 5 EUR pour le restaurant (compte connecte)
+**Solution** : Dans `create-payment/index.ts`, si le restaurant a un `stripe_account_id` (donc Stripe Connect est actif), creer le payout avec `status: "paid"` au lieu de "pending". Seuls les restaurants sans compte Connect garderont le statut "pending" (necessitant un virement manuel).
+
+## Probleme 4 : Cache React Query apres paiement
+
+L'invalidation dans `CheckoutReturnPage` utilise `queryKey: ["reservations"]` ce qui devrait fonctionner (correspondance par prefixe). Mais pour plus de robustesse, invalider aussi `queryKey: ["offers"]` pour que le stock affiche se mette a jour cote client.
+
+## Details techniques
+
+### Migration SQL (nouveau fichier)
+
+```sql
+CREATE TRIGGER on_new_reservation
+  BEFORE INSERT ON public.reservations
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_reservation();
+
+CREATE TRIGGER on_reservation_cancel
+  BEFORE UPDATE ON public.reservations
+  FOR EACH ROW EXECUTE FUNCTION public.handle_reservation_cancel();
+
+CREATE TRIGGER on_new_offer
+  AFTER INSERT ON public.offers
+  FOR EACH ROW EXECUTE FUNCTION public.notify_new_offer();
+
+CREATE TRIGGER on_restaurant_status_change
+  AFTER UPDATE ON public.restaurants
+  FOR EACH ROW EXECUTE FUNCTION public.notify_restaurant_status_change();
 ```
 
-### Onboarding restaurant
+### Fichiers modifies
 
-Chaque restaurateur devra passer par un formulaire Stripe (heberge par Stripe) ou il renseignera :
-- Son IBAN
-- Ses informations legales (identite, adresse, etc.)
-
-Le restaurateur n'a PAS besoin de creer un compte Stripe lui-meme. Un bouton dans son dashboard lancera le processus d'onboarding automatiquement.
-
-### Ce qui sera mis en place
-
-#### Nouvelles tables en base de donnees
-
-**`platform_settings`** : stocke le taux de commission global
-- `id` (uuid, PK)
-- `commission_rate` (integer, defaut 50, de 0 a 100)
-- `updated_at`, `updated_by`
-- Une seule ligne, inseree par defaut
-- RLS : lecture pour tous les authentifies, ecriture pour admins uniquement
-
-**`restaurant_payouts`** : enregistre chaque repartition apres une commande
-- `id` (uuid, PK)
-- `reservation_id` (uuid, FK)
-- `restaurant_id` (uuid, FK)
-- `total_amount`, `commission_rate`, `platform_amount`, `restaurant_amount`
-- `status` (pending / paid)
-- `stripe_transfer_id` (text, nullable) -- ID du transfert Stripe
-- RLS : admins voient tout, marchands voient les leurs
-
-**Modification de `restaurants`** : ajout d'un champ `stripe_account_id` (text, nullable) -- ID du compte Stripe Connect du restaurant
-
-#### Nouvelles Edge Functions
-
-**`create-connect-account`** : cree un compte Stripe Connect Express pour un restaurant et retourne le lien d'onboarding
-- Verifie l'authentification
-- Cree un compte Stripe Express avec le pays et l'email du proprietaire
-- Sauvegarde le `stripe_account_id` dans la table `restaurants`
-- Retourne l'URL d'onboarding Stripe
-
-**`check-connect-status`** : verifie si le compte Connect du restaurant est operationnel (charges_enabled)
-- Retourne le statut d'onboarding (complet ou en attente)
-
-#### Modifications de l'Edge Function existante
-
-**`create-payment`** : modifier pour utiliser Stripe Connect
-- Lire le taux de commission depuis `platform_settings`
-- Recuperer le `stripe_account_id` du restaurant
-- Ajouter `payment_intent_data.application_fee_amount` a la session Stripe pour definir la part plateforme
-- Ajouter `payment_intent_data.transfer_data.destination` pour diriger le reste vers le compte Connect du restaurant
-- Creer une entree dans `restaurant_payouts` avec le detail de la repartition
-
-#### Nouvelles pages / modifications UI
-
-**`src/pages/admin/AdminSettings.tsx`** (nouveau) : page admin pour :
-- Modifier le taux de commission global (slider ou champ numerique)
-- Voir la liste des paiements recents avec le detail de la repartition
-- Filtrer par statut (pending / paid)
-
-**`src/pages/admin/AdminLayout.tsx`** : ajouter "Parametres" dans la navigation laterale
-
-**`src/App.tsx`** : ajouter la route `/admin/settings`
-
-**`src/pages/Dashboard.tsx`** : ajouter une section "Paiements" dans le dashboard marchand :
-- Bouton "Configurer mes paiements" qui lance l'onboarding Stripe Connect
-- Statut du compte Connect (en attente / actif)
-- Historique des reversements recus
-
-**`src/pages/OrdersPage.tsx`** : refactoring avec `useQuery`
-
-**`src/pages/CheckoutReturnPage.tsx`** : invalider `["reservations"]`
-
-## Fichiers impactes
-
-- **Migrations SQL** : 2 nouvelles tables + modification de `restaurants`
-- **`supabase/functions/create-connect-account/index.ts`** (nouveau)
-- **`supabase/functions/check-connect-status/index.ts`** (nouveau)
-- **`supabase/functions/create-payment/index.ts`** (modifie)
-- **`supabase/config.toml`** (ajouter les 2 nouvelles fonctions)
-- **`src/pages/OrdersPage.tsx`** (refactoring useQuery)
-- **`src/pages/CheckoutReturnPage.tsx`** (invalider reservations)
-- **`src/pages/admin/AdminSettings.tsx`** (nouveau)
-- **`src/pages/admin/AdminLayout.tsx`** (ajout lien Parametres)
-- **`src/App.tsx`** (ajout route /admin/settings)
-- **`src/pages/Dashboard.tsx`** (section onboarding Connect + historique)
-
-## Prerequis important
-
-Votre compte Stripe doit etre configure en mode "Plateforme" (Stripe Connect). Cela se fait dans le dashboard Stripe sous Settings > Connect. Si ce n'est pas encore fait, il faudra l'activer avant que les restaurants puissent s'inscrire.
-
+- **`src/pages/ProfilePage.tsx`** : ajouter prop `onNavigate` et gestionnaire onClick sur "Mes commandes" pour basculer vers l'onglet orders
+- **`src/pages/Index.tsx`** : passer `onNavigate={setActiveTab}` en prop a `ProfilePage`
+- **`supabase/functions/create-payment/index.ts`** : changer le status du payout a "paid" quand `stripeAccountId` est present
+- **`src/pages/CheckoutReturnPage.tsx`** : ajouter invalidation de `["offers"]` pour rafraichir le stock cote client
