@@ -40,7 +40,8 @@ const ReservationConfirmation = ({
   });
 
   const statusConfig = {
-    confirmed: { label: "Confirmée", color: "text-primary", bg: "bg-primary/10", icon: CheckCircle },
+    confirmed: { label: "En attente", color: "text-amber-600", bg: "bg-amber-100", icon: Clock },
+    accepted: { label: "Acceptée", color: "text-primary", bg: "bg-primary/10", icon: CheckCircle },
     completed: { label: "Retirée", color: "text-muted-foreground", bg: "bg-muted", icon: Package },
     cancelled: { label: "Annulée", color: "text-destructive", bg: "bg-destructive/10", icon: XCircle },
   };
@@ -59,10 +60,12 @@ const ReservationConfirmation = ({
           <StatusIcon className={`h-8 w-8 ${s.color}`} />
         </div>
         <h1 className="mt-4 font-display text-2xl font-bold text-foreground">
-          {status === "confirmed" ? "Réservation confirmée !" : s.label}
+          {status === "confirmed" ? "Réservation en attente" : status === "accepted" ? "Réservation acceptée !" : s.label}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {status === "confirmed"
+            ? "Le commerçant doit encore valider votre réservation"
+            : status === "accepted"
             ? "Présentez ce QR code au restaurant pour retirer votre commande"
             : status === "completed"
             ? "Vous avez bien récupéré votre commande"
@@ -70,7 +73,7 @@ const ReservationConfirmation = ({
         </p>
       </div>
 
-      {status === "confirmed" && (
+      {status === "accepted" && (
         <div className="mt-8 flex justify-center">
           <div className="rounded-2xl bg-card p-6 shadow-md">
             <QRCodeSVG

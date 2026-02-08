@@ -64,7 +64,8 @@ const OrdersPage = () => {
   }
 
   const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-    confirmed: { label: "Confirmée", variant: "default" },
+    confirmed: { label: "En attente", variant: "outline" },
+    accepted: { label: "Acceptée", variant: "default" },
     completed: { label: "Retirée", variant: "secondary" },
     cancelled: { label: "Annulée", variant: "destructive" },
   };
