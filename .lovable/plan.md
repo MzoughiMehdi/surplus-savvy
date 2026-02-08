@@ -1,99 +1,139 @@
 
 
-# Corriger la mise a jour des creneaux
+# Systeme de notation multi-criteres + notification d'evaluation
 
-## Probleme identifie
+## Objectif
 
-La configuration (`surprise_bag_config`) est bien mise a jour (pickup_start = 08:00), mais l'offre du jour dans la table `offers` garde les anciens creneaux (18:00). La fonction `syncTodayOffer` dans `useSurpriseBagConfig.ts` execute un UPDATE, mais celui-ci echoue **silencieusement** a cause des politiques de securite de la base de donnees.
+1. Permettre aux clients de noter une commande retiree selon 3 criteres (qualite, quantite, presentation)
+2. Afficher les moyennes par critere dans la fiche detail d'un panier
+3. Envoyer automatiquement une notification au client quand sa commande est marquee comme retiree, l'invitant a evaluer son panier
 
-**Cause racine** : Toutes les politiques de securite (RLS) sur la table `offers` sont de type RESTRICTIF. En PostgreSQL, s'il n'y a aucune politique permissive, l'acces est refuse par defaut, meme si une politique restrictive devrait autoriser l'operation. L'UPDATE retourne 0 lignes modifiees sans erreur.
+---
 
-## Solution
+## Ce qui change pour l'utilisateur
 
-### Etape 1 : Corriger les politiques de securite (migration SQL)
+- **Apres le retrait** : le client recoit une notification "Evaluez votre panier !" qui l'invite a donner son avis
+- **Lors de la notation** : 3 lignes d'etoiles (Qualite, Quantite, Presentation) au lieu d'une seule note globale
+- **Dans la fiche d'un panier** : les moyennes de chaque critere s'affichent sous la note globale (ex: Qualite 4.2, Quantite 3.8, Presentation 4.5)
 
-Changer la politique "Restaurant owners can manage offers" de RESTRICTIVE a PERMISSIVE. Cela permettra aux proprietaires de restaurants de modifier leurs propres offres.
+---
 
-De meme, corriger les autres politiques SELECT sur `offers` qui devraient etre permissives ("Anyone can view active offers", "Users can view offers from own reservations", "Admins can view all offers").
+## Etapes d'implementation
 
-### Etape 2 : Ajouter la gestion d'erreurs dans syncTodayOffer
+### 1. Migration base de donnees
 
-Dans `src/hooks/useSurpriseBagConfig.ts`, ajouter un log et une verification d'erreur sur l'appel UPDATE pour detecter les echecs futurs.
+- Ajouter 3 colonnes a la table `reviews` : `rating_quality`, `rating_quantity`, `rating_presentation`
+- Mettre a jour les fonctions RPC `get_restaurant_rating` et `get_all_restaurant_ratings` pour inclure les moyennes par critere
+- Creer un trigger `on_reservation_completed` qui insere une notification au client quand le statut passe a "completed"
 
-### Etape 3 : Corriger l'offre existante
+### 2. Notification automatique au retrait
 
-L'offre du jour actuellement en base a les mauvais creneaux. Apres la correction des politiques, forcer une synchronisation en rechargeant le dashboard ou en modifiant a nouveau un creneau.
+Un trigger PostgreSQL sur la table `reservations` detecte le passage du statut a "completed" et cree automatiquement une notification pour le client avec :
+- Titre : "Evaluez votre panier !"
+- Message : "Comment etait votre panier de [nom du restaurant] ? Donnez votre avis."
+- Type : "review_prompt"
+- Metadata : reservation_id et restaurant_id (pour navigation directe)
 
-## Detail technique
+### 3. Mise a jour du formulaire de notation
+
+Le composant `ReservationConfirmation` affichera 3 lignes d'etoiles :
+- Qualite des produits
+- Quantite / rapport qualite-prix
+- Presentation / emballage
+
+Le bouton d'envoi ne s'active que quand les 3 criteres sont remplis. La note globale est calculee comme la moyenne des 3.
+
+### 4. Affichage des moyennes dans la fiche panier
+
+Le composant `OfferDetail` affichera sous la note globale existante une section compacte avec les 3 moyennes par critere (visible uniquement si des avis existent).
+
+### 5. Mise a jour des hooks
+
+- `useReviews.ts` : gestion des 3 sous-notes a l'envoi et a la lecture
+- `useAllRestaurantRatings.ts` : propagation des sous-moyennes pour l'affichage dans les fiches
+
+---
+
+## Details techniques
 
 ### Migration SQL
 
 ```sql
--- Supprimer les politiques restrictives et les recreer en permissif
-DROP POLICY IF EXISTS "Restaurant owners can manage offers" ON offers;
-CREATE POLICY "Restaurant owners can manage offers" ON offers
-  FOR ALL
-  USING (EXISTS (
-    SELECT 1 FROM restaurants
-    WHERE restaurants.id = offers.restaurant_id
-    AND restaurants.owner_id = auth.uid()
-  ))
-  WITH CHECK (EXISTS (
-    SELECT 1 FROM restaurants
-    WHERE restaurants.id = offers.restaurant_id
-    AND restaurants.owner_id = auth.uid()
-  ));
+-- Nouvelles colonnes
+ALTER TABLE public.reviews
+  ADD COLUMN rating_quality integer,
+  ADD COLUMN rating_quantity integer,
+  ADD COLUMN rating_presentation integer;
 
-DROP POLICY IF EXISTS "Anyone can view active offers" ON offers;
-CREATE POLICY "Anyone can view active offers" ON offers
-  FOR SELECT
-  USING (
-    is_active = true AND items_left > 0
-    AND EXISTS (
-      SELECT 1 FROM restaurants
-      WHERE restaurants.id = offers.restaurant_id
-      AND restaurants.status = 'approved'
-    )
-  );
+ALTER TABLE public.reviews
+  ADD CONSTRAINT check_rating_quality CHECK (rating_quality BETWEEN 1 AND 5),
+  ADD CONSTRAINT check_rating_quantity CHECK (rating_quantity BETWEEN 1 AND 5),
+  ADD CONSTRAINT check_rating_presentation CHECK (rating_presentation BETWEEN 1 AND 5);
 
-DROP POLICY IF EXISTS "Users can view offers from own reservations" ON offers;
-CREATE POLICY "Users can view offers from own reservations" ON offers
-  FOR SELECT
-  USING (EXISTS (
-    SELECT 1 FROM reservations
-    WHERE reservations.offer_id = offers.id
-    AND reservations.user_id = auth.uid()
-  ));
+-- RPC mise a jour
+CREATE OR REPLACE FUNCTION public.get_restaurant_rating(p_restaurant_id uuid)
+RETURNS TABLE(avg_rating numeric, review_count bigint, avg_quality numeric, avg_quantity numeric, avg_presentation numeric)
+LANGUAGE sql STABLE SET search_path TO 'public'
+AS $$
+  SELECT
+    ROUND(AVG(rating)::numeric, 1),
+    COUNT(*),
+    ROUND(AVG(rating_quality)::numeric, 1),
+    ROUND(AVG(rating_quantity)::numeric, 1),
+    ROUND(AVG(rating_presentation)::numeric, 1)
+  FROM public.reviews
+  WHERE restaurant_id = p_restaurant_id;
+$$;
 
-DROP POLICY IF EXISTS "Admins can view all offers" ON offers;
-CREATE POLICY "Admins can view all offers" ON offers
-  FOR SELECT
-  USING (has_role(auth.uid(), 'admin'::app_role));
+CREATE OR REPLACE FUNCTION public.get_all_restaurant_ratings()
+RETURNS TABLE(restaurant_name text, avg_rating numeric, review_count bigint, avg_quality numeric, avg_quantity numeric, avg_presentation numeric)
+LANGUAGE sql STABLE SET search_path TO 'public'
+AS $$
+  SELECT
+    r.name, ROUND(AVG(rev.rating)::numeric, 1), COUNT(*),
+    ROUND(AVG(rev.rating_quality)::numeric, 1),
+    ROUND(AVG(rev.rating_quantity)::numeric, 1),
+    ROUND(AVG(rev.rating_presentation)::numeric, 1)
+  FROM public.reviews rev
+  JOIN public.restaurants r ON r.id = rev.restaurant_id
+  GROUP BY r.name;
+$$;
+
+-- Trigger notification au retrait
+CREATE OR REPLACE FUNCTION public.handle_reservation_completed()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
+AS $$
+DECLARE
+  offer_title text;
+  restaurant_name text;
+BEGIN
+  IF OLD.status IS DISTINCT FROM 'completed' AND NEW.status = 'completed' THEN
+    SELECT o.title, r.name INTO offer_title, restaurant_name
+    FROM offers o JOIN restaurants r ON r.id = o.restaurant_id
+    WHERE o.id = NEW.offer_id;
+
+    INSERT INTO notifications (user_id, title, message, type, metadata)
+    VALUES (
+      NEW.user_id,
+      'Evaluez votre panier !',
+      'Comment etait votre panier de ' || restaurant_name || ' ? Donnez votre avis.',
+      'review_prompt',
+      jsonb_build_object('reservation_id', NEW.id, 'restaurant_id', NEW.restaurant_id)
+    );
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER on_reservation_completed
+  AFTER UPDATE ON reservations
+  FOR EACH ROW EXECUTE FUNCTION handle_reservation_completed();
 ```
 
-### useSurpriseBagConfig.ts -- Ameliorer syncTodayOffer
+### Fichiers modifies
 
-```typescript
-const syncTodayOffer = async (updatedConfig: Partial<SurpriseBagConfig>) => {
-  if (!restaurantId) return;
-  const today = new Date().toISOString().split("T")[0];
-  const offerUpdates: Record<string, any> = {};
-  // ... meme logique ...
-  if (Object.keys(offerUpdates).length > 0) {
-    const { error, count } = await supabase
-      .from("offers")
-      .update(offerUpdates)
-      .eq("restaurant_id", restaurantId)
-      .eq("date", today);
-    if (error) {
-      console.error("Erreur sync offre du jour:", error);
-    }
-  }
-};
-```
-
-## Fichiers modifies
-
-1. **Nouvelle migration SQL** -- Corriger les politiques RLS sur la table `offers`
-2. **src/hooks/useSurpriseBagConfig.ts** -- Ajouter gestion d'erreurs dans `syncTodayOffer`
+1. **`src/hooks/useReviews.ts`** : `submitReview` accepte les 3 notes, calcule la moyenne globale ; `useUserReviewForReservation` retourne les sous-notes
+2. **`src/hooks/useAllRestaurantRatings.ts`** : retourne les 3 moyennes par critere
+3. **`src/components/ReservationConfirmation.tsx`** : formulaire avec 3 lignes d'etoiles + affichage lecture seule
+4. **`src/components/OfferDetail.tsx`** : section compacte avec les moyennes par critere sous la note globale
 
