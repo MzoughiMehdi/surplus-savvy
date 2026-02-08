@@ -3,14 +3,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Package, Clock, Trash2, BarChart3, Store, LogOut, QrCode, CheckCircle, Users, CreditCard, ExternalLink, Loader2, Landmark } from "lucide-react";
+import { Package, Clock, BarChart3, Store, LogOut, QrCode, CheckCircle, XCircle, Users, CreditCard, ExternalLink, Loader2, Landmark } from "lucide-react";
 import { toast } from "sonner";
 import NotificationBell from "@/components/NotificationBell";
 import RestaurantImageUpload from "@/components/RestaurantImageUpload";
-import OfferImageUpload from "@/components/OfferImageUpload";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useSubscription, MERCHANT_PLAN } from "@/hooks/useSubscription";
+import { useSurpriseBagConfig } from "@/hooks/useSurpriseBagConfig";
+import { useDailyOverrides } from "@/hooks/useDailyOverrides";
+import SurpriseBagConfig from "@/components/SurpriseBagConfig";
+import SurpriseBagCalendar from "@/components/SurpriseBagCalendar";
 
 interface RestaurantData {
   id: string;
@@ -21,19 +24,6 @@ interface RestaurantData {
   image_url: string | null;
 }
 
-interface OfferData {
-  id: string;
-  title: string;
-  original_price: number;
-  discounted_price: number;
-  items_left: number;
-  pickup_start: string;
-  pickup_end: string;
-  is_active: boolean;
-  category: string;
-  image_url: string | null;
-}
-
 interface ReservationData {
   id: string;
   pickup_code: string;
@@ -41,7 +31,6 @@ interface ReservationData {
   created_at: string;
   user_id: string;
   offers: { title: string; discounted_price: number };
-  customer_name?: string;
 }
 
 const ConnectSection = ({ restaurantId }: { restaurantId?: string }) => {
@@ -68,9 +57,7 @@ const ConnectSection = ({ restaurantId }: { restaurantId?: string }) => {
         body: { restaurantId },
       });
       if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, "_blank");
-      }
+      if (data?.url) window.open(data.url, "_blank");
     } catch {
       toast.error("Erreur lors de la configuration");
     } finally {
@@ -83,8 +70,7 @@ const ConnectSection = ({ restaurantId }: { restaurantId?: string }) => {
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Landmark className="h-4 w-4 text-primary" />
-            Paiements
+            <Landmark className="h-4 w-4 text-primary" /> Paiements
           </p>
           {connectStatus?.chargesEnabled ? (
             <p className="mt-0.5 text-xs text-muted-foreground flex items-center gap-1">
@@ -115,26 +101,70 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const subscription = useSubscription();
   const [restaurant, setRestaurant] = useState<RestaurantData | null>(null);
-  const [offers, setOffers] = useState<OfferData[]>([]);
   const [reservations, setReservations] = useState<ReservationData[]>([]);
-  const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Form state
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [originalPrice, setOriginalPrice] = useState("");
-  const [discountedPrice, setDiscountedPrice] = useState("");
-  const [quantity, setQuantity] = useState("1");
-  const [pickupStart, setPickupStart] = useState("18:00");
-  const [pickupEnd, setPickupEnd] = useState("20:00");
-  const [category, setCategory] = useState("meals");
-  const [offerImageUrl, setOfferImageUrl] = useState<string | null>(null);
+  const now = new Date();
+  const [currentMonth, setCurrentMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
+
+  const { config, upsertConfig } = useSurpriseBagConfig(restaurant?.id);
+  const { overrides, upsertOverride, deleteOverride } = useDailyOverrides(restaurant?.id, currentMonth);
 
   useEffect(() => {
     if (!user) { navigate("/auth"); return; }
     fetchData();
   }, [user]);
+
+  // Auto-generate today's offer
+  useEffect(() => {
+    if (!restaurant || !config || !config.is_active) return;
+    generateTodayOffer();
+  }, [restaurant, config]);
+
+  const generateTodayOffer = async () => {
+    if (!restaurant || !config) return;
+    const today = new Date().toISOString().split("T")[0];
+
+    // Check if today's offer already exists
+    const { data: existing } = await supabase
+      .from("offers")
+      .select("id")
+      .eq("restaurant_id", restaurant.id)
+      .eq("date", today)
+      .limit(1);
+
+    if (existing && existing.length > 0) return;
+
+    // Check for override
+    const { data: todayOverride } = await supabase
+      .from("daily_overrides")
+      .select("*")
+      .eq("restaurant_id", restaurant.id)
+      .eq("date", today)
+      .maybeSingle();
+
+    if (todayOverride?.is_suspended) return;
+
+    const qty = todayOverride?.quantity ?? config.daily_quantity;
+    const pStart = todayOverride?.pickup_start ?? config.pickup_start;
+    const pEnd = todayOverride?.pickup_end ?? config.pickup_end;
+    const salePrice = Number((config.base_price * 0.4).toFixed(2));
+
+    await supabase.from("offers").insert({
+      restaurant_id: restaurant.id,
+      title: "Panier surprise",
+      description: "Un assortiment surprise de nos meilleurs produits du jour",
+      original_price: config.base_price,
+      discounted_price: salePrice,
+      quantity: qty,
+      items_left: qty,
+      pickup_start: pStart,
+      pickup_end: pEnd,
+      category: "meals",
+      date: today,
+      is_active: true,
+    });
+  };
 
   const fetchData = async () => {
     if (!user) return;
@@ -148,95 +178,28 @@ const Dashboard = () => {
     if (!rest) { navigate("/merchant-onboarding"); return; }
     setRestaurant(rest);
 
-    const [{ data: off }, { data: res }] = await Promise.all([
-      supabase
-        .from("offers")
-        .select("*")
-        .eq("restaurant_id", rest.id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("reservations")
-        .select("id, pickup_code, status, created_at, user_id, offers(title, discounted_price)")
-        .eq("restaurant_id", rest.id)
-        .order("created_at", { ascending: false })
-        .limit(20),
-    ]);
+    const { data: res } = await supabase
+      .from("reservations")
+      .select("id, pickup_code, status, created_at, user_id, offers(title, discounted_price)")
+      .eq("restaurant_id", rest.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
 
-    setOffers(off || []);
     setReservations((res as unknown as ReservationData[]) || []);
     setLoading(false);
   };
 
-  const handleCreateOffer = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const origPrice = parseFloat(originalPrice);
-    const discPrice = parseFloat(discountedPrice);
-    const qty = parseInt(quantity);
-
-    if (!restaurant || !title.trim()) {
-      toast.error("Titre requis");
-      return;
-    }
-    if (isNaN(origPrice) || origPrice <= 0 || origPrice > 10000) {
-      toast.error("Prix original invalide (0.01€ - 10 000€)");
-      return;
-    }
-    if (isNaN(discPrice) || discPrice <= 0 || discPrice > 10000) {
-      toast.error("Prix réduit invalide (0.01€ - 10 000€)");
-      return;
-    }
-    if (discPrice >= origPrice) {
-      toast.error("Le prix réduit doit être inférieur au prix original");
-      return;
-    }
-    if (isNaN(qty) || qty <= 0 || qty > 1000) {
-      toast.error("Quantité invalide (1-1000)");
-      return;
-    }
-    if (pickupStart >= pickupEnd) {
-      toast.error("L'heure de fin doit être après l'heure de début");
-      return;
-    }
-
-    const { error } = await supabase.from("offers").insert({
-      restaurant_id: restaurant.id,
-      title: title.trim(),
-      description: description.trim() || null,
-      original_price: origPrice,
-      discounted_price: discPrice,
-      quantity: qty,
-      items_left: qty,
-      pickup_start: pickupStart,
-      pickup_end: pickupEnd,
-      category,
-      image_url: offerImageUrl,
-    });
-
-    if (error) { toast.error(error.message); return; }
-
-    toast.success("Offre créée !");
-    setShowForm(false);
-    setTitle(""); setDescription(""); setOriginalPrice(""); setDiscountedPrice(""); setOfferImageUrl(null);
-    setQuantity("1"); setPickupStart("18:00"); setPickupEnd("20:00");
-    fetchData();
-  };
-
-  const toggleOffer = async (id: string, active: boolean) => {
-    await supabase.from("offers").update({ is_active: !active }).eq("id", id);
-    fetchData();
-  };
-
-  const deleteOffer = async (id: string) => {
-    await supabase.from("offers").delete().eq("id", id);
-    toast.success("Offre supprimée");
-    fetchData();
-  };
+  // Count reservations per date for calendar
+  const reservationCounts: Record<string, number> = {};
+  reservations.forEach((r) => {
+    const date = r.created_at.split("T")[0];
+    reservationCounts[date] = (reservationCounts[date] || 0) + 1;
+  });
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-muted-foreground">Chargement...</p>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -244,6 +207,8 @@ const Dashboard = () => {
   const trialDaysLeft = restaurant?.trial_ends_at
     ? Math.max(0, Math.ceil((new Date(restaurant.trial_ends_at).getTime() - Date.now()) / 86400000))
     : 0;
+
+  const todayReservations = reservations.filter((r) => r.created_at.split("T")[0] === new Date().toISOString().split("T")[0]);
 
   return (
     <div className="min-h-screen bg-background px-5 pb-8 pt-12">
@@ -274,19 +239,16 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Status / Trial */}
-      {/* Subscription Management */}
+      {/* Subscription */}
       <div className="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-primary" />
-              Abonnement
+              <CreditCard className="h-4 w-4 text-primary" /> Abonnement
             </p>
             {subscription.subscribed ? (
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Plan {MERCHANT_PLAN.name} · 
-                Renouvellement {subscription.subscriptionEnd ? new Date(subscription.subscriptionEnd).toLocaleDateString("fr-FR") : ""}
+                Plan {MERCHANT_PLAN.name} · Renouvellement {subscription.subscriptionEnd ? new Date(subscription.subscriptionEnd).toLocaleDateString("fr-FR") : ""}
               </p>
             ) : (
               <p className="mt-0.5 text-xs text-muted-foreground">Essai gratuit · {trialDaysLeft} jour{trialDaysLeft > 1 ? "s" : ""} restant{trialDaysLeft > 1 ? "s" : ""}</p>
@@ -306,7 +268,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Stripe Connect - Paiements */}
       <ConnectSection restaurantId={restaurant?.id} />
 
       {restaurant?.status === "pending" && (
@@ -320,13 +281,13 @@ const Dashboard = () => {
       <div className="mt-4 grid grid-cols-3 gap-3">
         <div className="rounded-xl bg-card p-3 text-center shadow-sm">
           <Package className="mx-auto h-5 w-5 text-primary" />
-          <p className="mt-1 text-xl font-bold text-foreground">{offers.length}</p>
-          <p className="text-[10px] text-muted-foreground">Offres</p>
+          <p className="mt-1 text-xl font-bold text-foreground">{config?.daily_quantity ?? 0}</p>
+          <p className="text-[10px] text-muted-foreground">Paniers/jour</p>
         </div>
         <div className="rounded-xl bg-card p-3 text-center shadow-sm">
           <BarChart3 className="mx-auto h-5 w-5 text-accent" />
-          <p className="mt-1 text-xl font-bold text-foreground">{offers.filter((o) => o.is_active).length}</p>
-          <p className="text-[10px] text-muted-foreground">Actives</p>
+          <p className="mt-1 text-xl font-bold text-foreground">{todayReservations.length}</p>
+          <p className="text-[10px] text-muted-foreground">Réservations</p>
         </div>
         <div className="rounded-xl bg-card p-3 text-center shadow-sm">
           <Store className="mx-auto h-5 w-5 text-success" />
@@ -335,114 +296,25 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Create offer button */}
-      <button onClick={() => setShowForm(!showForm)}
-        className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-md transition-transform active:scale-[0.98]">
-        <Plus className="h-4 w-4" /> {showForm ? "Annuler" : "Nouvelle offre"}
-      </button>
-
-      {/* Create offer form */}
-      {showForm && (
-        <form onSubmit={handleCreateOffer} className="mt-4 animate-fade-in-up space-y-3 rounded-2xl bg-card p-4 shadow-sm">
-          {user && (
-            <OfferImageUpload imageUrl={offerImageUrl} onImageChange={setOfferImageUrl} userId={user.id} />
-          )}
-          <input type="text" placeholder="Titre de l'offre *" value={title} onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" />
-          <textarea placeholder="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={2}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" />
-          <div className="grid grid-cols-2 gap-3">
-            <input type="number" step="0.01" placeholder="Prix original *" value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)}
-              className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            <input type="number" step="0.01" placeholder="Prix réduit *" value={discountedPrice} onChange={(e) => setDiscountedPrice(e.target.value)}
-              className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" />
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <input type="number" placeholder="Quantité" value={quantity} onChange={(e) => setQuantity(e.target.value)}
-              className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            <input type="time" value={pickupStart} onChange={(e) => setPickupStart(e.target.value)}
-              className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" />
-            <input type="time" value={pickupEnd} onChange={(e) => setPickupEnd(e.target.value)}
-              className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" />
-          </div>
-          <button type="submit" className="w-full rounded-lg bg-primary py-2.5 text-sm font-bold text-primary-foreground">
-            Créer l'offre
-          </button>
-        </form>
-      )}
-
-      {/* Offers list */}
+      {/* Surprise Bag Config */}
       <div className="mt-6">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-lg font-bold text-foreground">Vos offres</h2>
-          <span className="text-xs text-muted-foreground">
-            {offers.filter((o) => o.is_active).length} active(s) sur {offers.length} offre(s)
-          </span>
-        </div>
-        {offers.length === 0 ? (
-          <p className="mt-4 text-center text-sm text-muted-foreground">Aucune offre pour le moment</p>
-        ) : (
-          <div className="mt-3 space-y-3">
-            {offers.map((offer) => (
-              <div key={offer.id} className={`rounded-xl bg-card shadow-sm overflow-hidden ${!offer.is_active ? "opacity-50" : ""}`}>
-                {offer.image_url && (
-                  <img src={offer.image_url} alt={offer.title} className="h-28 w-full object-cover" />
-                )}
-                <div className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-foreground">{offer.title}</p>
-                        <Badge
-                          variant={offer.items_left === 0 ? "destructive" : offer.is_active ? "default" : "secondary"}
-                          className="text-[10px]"
-                        >
-                          {offer.items_left === 0 ? "Rupture" : offer.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                      </div>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {offer.pickup_start} – {offer.pickup_end}
-                      </div>
-                      <div className="mt-1 flex items-baseline gap-2">
-                        <span className="text-xs text-muted-foreground line-through">€{offer.original_price}</span>
-                        <span className="text-sm font-bold text-primary">€{offer.discounted_price}</span>
-                        <span className="text-xs text-muted-foreground">· {offer.items_left} restant(s)</span>
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        size="sm"
-                        variant={offer.is_active ? "outline" : "default"}
-                        className="text-xs h-8"
-                        onClick={() => toggleOffer(offer.id, offer.is_active)}
-                      >
-                        {offer.is_active ? "Désactiver" : "Activer"}
-                      </Button>
-                      <button onClick={() => deleteOffer(offer.id)}
-                        className="rounded-lg bg-secondary p-2 text-muted-foreground hover:text-destructive">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                  {user && (
-                    <div className="mt-3">
-                      <OfferImageUpload
-                        imageUrl={offer.image_url}
-                        onImageChange={(url) => {
-                          setOffers((prev) => prev.map((o) => o.id === offer.id ? { ...o, image_url: url } : o));
-                        }}
-                        offerId={offer.id}
-                        userId={user.id}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <SurpriseBagConfig config={config} onUpdate={upsertConfig} />
       </div>
+
+      {/* Calendar */}
+      {config && (
+        <div className="mt-6">
+          <SurpriseBagCalendar
+            config={config}
+            overrides={overrides}
+            reservationCounts={reservationCounts}
+            onUpsertOverride={upsertOverride}
+            onDeleteOverride={deleteOverride}
+            currentMonth={currentMonth}
+            onMonthChange={setCurrentMonth}
+          />
+        </div>
+      )}
 
       {/* Reservations */}
       <div className="mt-6">
@@ -459,20 +331,58 @@ const Dashboard = () => {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm font-semibold text-foreground">{r.offers.title}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">Client</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {new Date(r.created_at).toLocaleDateString("fr-FR")}
+                    </p>
                     <div className="mt-1 flex items-center gap-2">
                       <QrCode className="h-3 w-3 text-muted-foreground" />
                       <span className="font-mono text-xs font-bold text-primary">{r.pickup_code.toUpperCase()}</span>
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <Badge variant={r.status === "confirmed" ? "default" : r.status === "completed" ? "secondary" : "destructive"} className="text-[10px]">
-                      {r.status === "confirmed" ? "À retirer" : r.status === "completed" ? "Retiré" : "Annulé"}
+                    <Badge
+                      variant={
+                        r.status === "confirmed" ? "default" :
+                        r.status === "accepted" ? "default" :
+                        r.status === "completed" ? "secondary" : "destructive"
+                      }
+                      className="text-[10px]"
+                    >
+                      {r.status === "confirmed" ? "En attente" :
+                       r.status === "accepted" ? "Acceptée" :
+                       r.status === "completed" ? "Retiré" : "Annulé"}
                     </Badge>
                     <span className="text-sm font-bold text-primary">€{r.offers.discounted_price}</span>
                   </div>
                 </div>
                 {r.status === "confirmed" && (
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      onClick={async () => {
+                        await supabase.from("reservations").update({ status: "accepted" }).eq("id", r.id);
+                        toast.success("Réservation acceptée !");
+                        fetchData();
+                      }}
+                    >
+                      <CheckCircle className="mr-1 h-3.5 w-3.5" /> Accepter
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={async () => {
+                        await supabase.from("reservations").update({ status: "cancelled" }).eq("id", r.id);
+                        toast.success("Réservation annulée");
+                        fetchData();
+                      }}
+                    >
+                      <XCircle className="mr-1 h-3.5 w-3.5" /> Refuser
+                    </Button>
+                  </div>
+                )}
+                {r.status === "accepted" && (
                   <Button
                     size="sm"
                     className="mt-3 w-full"

@@ -54,7 +54,7 @@ const OfferCard = ({ offer, onClick, index, dynamicRating }: OfferCardProps) => 
 
         <div className="p-4">
           <h3 className="text-sm font-semibold leading-snug text-foreground">
-            {offer.title}
+            🎁 {offer.title}
           </h3>
 
           <div className="mt-3 flex items-center justify-between">

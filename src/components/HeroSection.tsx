@@ -14,7 +14,7 @@ const HeroSection = ({ onExplore }: HeroSectionProps) => {
           alt="Nourriture fraîche sauvée du gaspillage"
           className="h-full w-full object-cover scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-foreground/30 via-foreground/20 to-background" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[hsl(173,80%,15%)]/60 via-[hsl(173,80%,20%)]/30 to-background" />
       </div>
 
       <div className="relative px-6 pb-10 pt-16">

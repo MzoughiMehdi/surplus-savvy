@@ -23,11 +23,14 @@ export const useOffers = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchOffers = async () => {
+    const today = new Date().toISOString().split("T")[0];
+
     const { data, error } = await supabase
       .from("offers")
       .select("*, restaurants(name, image_url, address)")
       .eq("is_active", true)
       .gt("items_left", 0)
+      .eq("date", today)
       .order("created_at", { ascending: false });
 
     if (error) {
