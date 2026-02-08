@@ -1,57 +1,56 @@
 
-# Correction des commandes, stock et paiements automatiques
 
-## Probleme 1 : Stock non mis a jour
+# Correction des stats profil + adresses sur la carte
 
-Les fonctions de base de donnees (`handle_new_reservation`, `handle_reservation_cancel`, `notify_new_offer`, `notify_restaurant_status_change`) existent mais **aucun trigger n'est attache aux tables**. C'est pour cela que le stock ne se decremente pas quand une reservation est creee.
+## Probleme 1 : Stats "Repas sauves" et "Euros economises"
 
-**Solution** : Creer une migration SQL pour attacher tous les triggers manquants :
-- `handle_new_reservation` sur INSERT dans `reservations` (decremente `items_left`, notifie le restaurateur)
-- `handle_reservation_cancel` sur UPDATE dans `reservations` (re-incremente `items_left` si annulation)
-- `notify_new_offer` sur INSERT dans `offers`
-- `notify_restaurant_status_change` sur UPDATE dans `restaurants`
+Dans `ProfilePage.tsx` (ligne 31), la requete filtre avec `.eq("status", "completed")`. Or les commandes payees ont le statut `"confirmed"` par defaut. Elles ne sont donc jamais comptees.
 
-## Probleme 2 : Bouton "Mes commandes" dans le profil
+**Solution** : Remplacer `.eq("status", "completed")` par `.in("status", ["confirmed", "completed"])`.
 
-Dans `ProfilePage.tsx`, les elements du menu (dont "Mes commandes") sont des boutons sans gestionnaire `onClick`. Cliquer dessus ne fait rien.
+## Probleme 2 : Adresses erronees sur la carte
 
-**Solution** : Ajouter un `onClick` sur "Mes commandes" pour que ca bascule vers l'onglet commandes. Comme `ProfilePage` est affiche dans `Index` via un systeme d'onglets (pas via le routeur), il faut passer une callback `onNavigate` en prop depuis `Index.tsx` pour changer l'onglet actif vers "orders".
+Actuellement, `MapView.tsx` ignore completement l'adresse reelle des restaurants. Les positions sont generees avec une formule mathematique fictive (lignes 20-24) :
 
-## Probleme 3 : Payouts pas marques automatiquement
-
-Dans `create-payment`, le payout est cree avec `status: "pending"` meme quand Stripe Connect gere le transfert automatiquement. Comme Stripe Connect transfere les fonds au moment du paiement, quand un `stripe_account_id` existe, le statut devrait etre "paid" directement.
-
-**Solution** : Dans `create-payment/index.ts`, si le restaurant a un `stripe_account_id` (donc Stripe Connect est actif), creer le payout avec `status: "paid"` au lieu de "pending". Seuls les restaurants sans compte Connect garderont le statut "pending" (necessitant un virement manuel).
-
-## Probleme 4 : Cache React Query apres paiement
-
-L'invalidation dans `CheckoutReturnPage` utilise `queryKey: ["reservations"]` ce qui devrait fonctionner (correspondance par prefixe). Mais pour plus de robustesse, invalider aussi `queryKey: ["offers"]` pour que le stock affiche se mette a jour cote client.
-
-## Details techniques
-
-### Migration SQL (nouveau fichier)
-
-```sql
-CREATE TRIGGER on_new_reservation
-  BEFORE INSERT ON public.reservations
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_reservation();
-
-CREATE TRIGGER on_reservation_cancel
-  BEFORE UPDATE ON public.reservations
-  FOR EACH ROW EXECUTE FUNCTION public.handle_reservation_cancel();
-
-CREATE TRIGGER on_new_offer
-  AFTER INSERT ON public.offers
-  FOR EACH ROW EXECUTE FUNCTION public.notify_new_offer();
-
-CREATE TRIGGER on_restaurant_status_change
-  AFTER UPDATE ON public.restaurants
-  FOR EACH ROW EXECUTE FUNCTION public.notify_restaurant_status_change();
+```text
+lat: 48.8566 + Math.sin(i * 1.8) * 0.012
+lng: 2.3522 + Math.cos(i * 1.5) * 0.015
 ```
 
-### Fichiers modifies
+Cela place les marqueurs a des positions aleatoires autour de Paris, sans rapport avec l'adresse reelle.
 
-- **`src/pages/ProfilePage.tsx`** : ajouter prop `onNavigate` et gestionnaire onClick sur "Mes commandes" pour basculer vers l'onglet orders
-- **`src/pages/Index.tsx`** : passer `onNavigate={setActiveTab}` en prop a `ProfilePage`
-- **`supabase/functions/create-payment/index.ts`** : changer le status du payout a "paid" quand `stripeAccountId` est present
-- **`src/pages/CheckoutReturnPage.tsx`** : ajouter invalidation de `["offers"]` pour rafraichir le stock cote client
+**Solution** : Utiliser l'API gratuite de geocodage OpenStreetMap (Nominatim) pour convertir l'adresse textuelle de chaque restaurant en coordonnees GPS reelles, puis placer les marqueurs aux bonnes positions.
+
+### Fonctionnement
+
+```text
+Adresse "35 Avenue de la Grande Armee, Paris"
+        |
+        v
+API Nominatim (gratuite, pas de cle API)
+        |
+        v
+Coordonnees: lat 48.8748, lng 2.2860
+        |
+        v
+Marqueur place a la bonne position sur la carte
+```
+
+### Details techniques
+
+**`src/components/MapView.tsx`** :
+- Supprimer la formule de positions fictives
+- Ajouter une fonction `geocodeAddress(address: string)` qui appelle `https://nominatim.openstreetmap.org/search?q={address}&format=json&limit=1`
+- Au montage du composant, geocoder toutes les adresses des restaurants
+- Placer les marqueurs aux coordonnees reelles obtenues
+- Ajouter un cache local (Map) pour eviter de re-geocoder les memes adresses
+- Afficher l'adresse reelle dans le popup de chaque marqueur
+
+**`src/pages/ProfilePage.tsx`** :
+- Ligne 31 : remplacer `.eq("status", "completed")` par `.in("status", ["confirmed", "completed"])`
+
+## Fichiers impactes
+
+- **`src/components/MapView.tsx`** : geocodage reel des adresses
+- **`src/pages/ProfilePage.tsx`** : correction du filtre de statut
+
