@@ -28,6 +28,29 @@ export const useSurpriseBagConfig = (restaurantId: string | undefined) => {
 
   useEffect(() => { fetchConfig(); }, [fetchConfig]);
 
+  const syncTodayOffer = async (updatedConfig: Partial<SurpriseBagConfig>) => {
+    if (!restaurantId) return;
+    const today = new Date().toISOString().split("T")[0];
+    const offerUpdates: Record<string, any> = {};
+    if (updatedConfig.pickup_start !== undefined) offerUpdates.pickup_start = updatedConfig.pickup_start;
+    if (updatedConfig.pickup_end !== undefined) offerUpdates.pickup_end = updatedConfig.pickup_end;
+    if (updatedConfig.base_price !== undefined) {
+      offerUpdates.original_price = updatedConfig.base_price;
+      offerUpdates.discounted_price = Number((updatedConfig.base_price * 0.4).toFixed(2));
+    }
+    if (updatedConfig.daily_quantity !== undefined) {
+      offerUpdates.quantity = updatedConfig.daily_quantity;
+      offerUpdates.items_left = updatedConfig.daily_quantity;
+    }
+    if (Object.keys(offerUpdates).length > 0) {
+      await supabase
+        .from("offers")
+        .update(offerUpdates)
+        .eq("restaurant_id", restaurantId)
+        .eq("date", today);
+    }
+  };
+
   const upsertConfig = async (updates: Partial<Omit<SurpriseBagConfig, "id" | "restaurant_id">>) => {
     if (!restaurantId) return;
     if (config) {
@@ -46,6 +69,8 @@ export const useSurpriseBagConfig = (restaurantId: string | undefined) => {
       if (error) throw error;
       setConfig(data as SurpriseBagConfig);
     }
+    // Sync today's offer with updated config
+    await syncTodayOffer(updates as Partial<SurpriseBagConfig>);
   };
 
   return { config, loading, upsertConfig, refetch: fetchConfig };

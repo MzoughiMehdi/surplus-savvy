@@ -34,11 +34,15 @@ const MerchantOnboarding = () => {
   // Restaurant fields
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [city, setCity] = useState("");
   const [businessId, setBusinessId] = useState("");
   const [phone, setPhone] = useState("");
   const [category, setCategory] = useState("restaurant");
   const [description, setDescription] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [geoVerified, setGeoVerified] = useState<boolean | null>(null);
+  const [geoChecking, setGeoChecking] = useState(false);
 
   // Surprise bag config
   const [bagPrice, setBagPrice] = useState("15");
@@ -83,7 +87,8 @@ const MerchantOnboarding = () => {
 
   const handleSubmit = async () => {
     if (!user) { toast.error("Vous devez être connecté"); return; }
-    if (!name.trim() || !address.trim()) { toast.error("Nom et adresse requis"); return; }
+    if (!name.trim() || !address.trim() || !postalCode.trim() || !city.trim()) { toast.error("Nom, adresse, code postal et ville requis"); return; }
+    if (geoVerified === false) { toast.error("L'adresse n'a pas pu être géolocalisée. Vérifiez-la."); return; }
     const price = Number(bagPrice);
     if (isNaN(price) || price < 10) { toast.error("Le prix doit être d'au moins 10€"); return; }
 
@@ -94,8 +99,10 @@ const MerchantOnboarding = () => {
 
       await supabase.from("profiles").update({ role: "merchant" }).eq("user_id", user.id);
 
+      const fullAddress = `${address.trim()}, ${postalCode.trim()} ${city.trim()}`;
       const { data: newRest, error } = await supabase.from("restaurants").insert({
-        owner_id: user.id, name: name.trim(), address: address.trim(),
+        owner_id: user.id, name: name.trim(), address: fullAddress,
+        postal_code: postalCode.trim(), city: city.trim(),
         business_id: businessId.trim() || null, phone: phone.trim() || null,
         category, description: description.trim() || null, image_url: imageUrl, subscription_plan: "trial",
       }).select("id").single();
@@ -206,8 +213,24 @@ const MerchantOnboarding = () => {
             </div>
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input type="text" placeholder="Adresse complète *" value={address} onChange={(e) => setAddress(e.target.value)} className={inputClass} />
+              <input type="text" placeholder="Adresse (n° et rue) *" value={address} onChange={(e) => { setAddress(e.target.value); setGeoVerified(null); }} className={inputClass} />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="relative">
+                <Hash className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input type="text" placeholder="Code postal *" value={postalCode} onChange={(e) => { setPostalCode(e.target.value); setGeoVerified(null); }} className={inputClass} />
+              </div>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input type="text" placeholder="Ville *" value={city} onChange={(e) => { setCity(e.target.value); setGeoVerified(null); }} className={inputClass} />
+              </div>
+            </div>
+            {geoVerified === true && (
+              <p className="text-xs text-primary flex items-center gap-1"><Check className="h-3 w-3" /> Adresse géolocalisée avec succès</p>
+            )}
+            {geoVerified === false && (
+              <p className="text-xs text-destructive">⚠️ Impossible de géolocaliser cette adresse. Vérifiez les informations.</p>
+            )}
             <div className="relative">
               <Hash className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input type="text" placeholder="N° SIRET (optionnel)" value={businessId} onChange={(e) => setBusinessId(e.target.value)} className={inputClass} />
@@ -240,8 +263,27 @@ const MerchantOnboarding = () => {
             {!user && (
               <button onClick={() => setStep("account")} className="flex-1 rounded-xl border border-border py-3.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary">Retour</button>
             )}
-            <button onClick={() => { if (!name.trim() || !address.trim()) { toast.error("Nom et adresse requis"); return; } setStep("bag"); }}
-              className="flex-1 rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-md transition-transform active:scale-[0.98]">
+            <button onClick={async () => {
+              if (!name.trim() || !address.trim() || !postalCode.trim() || !city.trim()) { toast.error("Nom, adresse, code postal et ville requis"); return; }
+              // Verify geocoding
+              setGeoChecking(true);
+              try {
+                const fullAddr = `${address.trim()}, ${postalCode.trim()} ${city.trim()}, France`;
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fullAddr)}&format=json&limit=1`, { headers: { "Accept-Language": "fr" } });
+                const data = await res.json();
+                if (data.length > 0) {
+                  setGeoVerified(true);
+                  setStep("bag");
+                } else {
+                  setGeoVerified(false);
+                  toast.error("Impossible de géolocaliser cette adresse");
+                }
+              } catch { setGeoVerified(false); toast.error("Erreur de vérification d'adresse"); }
+              finally { setGeoChecking(false); }
+            }}
+              disabled={geoChecking}
+              className="flex-1 rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-md transition-transform active:scale-[0.98] disabled:opacity-50">
+              {geoChecking ? <Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> : null}
               Continuer <ChevronRight className="ml-1 inline h-4 w-4" />
             </button>
           </div>
@@ -315,7 +357,7 @@ const MerchantOnboarding = () => {
             <div className="rounded-xl bg-card p-4 shadow-sm">
               <p className="text-xs text-muted-foreground">Restaurant</p>
               <p className="text-sm font-semibold text-foreground">{name}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{address}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{address}, {postalCode} {city}</p>
             </div>
             <div className="rounded-xl bg-card p-4 shadow-sm">
               <p className="text-xs text-muted-foreground">Panier surprise</p>

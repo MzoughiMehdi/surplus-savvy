@@ -17,7 +17,7 @@ interface GeocodedOffer extends Offer {
 
 const geocodeCache = new Map<string, { lat: number; lng: number } | null>();
 
-const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number } | null> => {
+const geocodeAddress = async (address: string, retry = true): Promise<{ lat: number; lng: number } | null> => {
   if (!address) return null;
   if (geocodeCache.has(address)) return geocodeCache.get(address)!;
 
@@ -31,6 +31,11 @@ const geocodeAddress = async (address: string): Promise<{ lat: number; lng: numb
       const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
       geocodeCache.set(address, coords);
       return coords;
+    }
+    // Fallback: append ", France" if not already present
+    if (retry && !address.toLowerCase().includes("france")) {
+      console.warn("Geocoding failed for:", address, "— retrying with ', France'");
+      return geocodeAddress(address + ", France", false);
     }
   } catch (e) {
     console.error("Geocoding error for", address, e);
