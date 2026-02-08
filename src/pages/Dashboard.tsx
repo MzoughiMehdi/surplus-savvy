@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Plus, Package, Clock, Trash2, Edit2, BarChart3, Store, LogOut, QrCode, CheckCircle, Users, CreditCard, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import NotificationBell from "@/components/NotificationBell";
+import RestaurantImageUpload from "@/components/RestaurantImageUpload";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useSubscription, MERCHANT_PLAN } from "@/hooks/useSubscription";
@@ -15,6 +16,7 @@ interface RestaurantData {
   subscription_plan: string;
   trial_ends_at: string;
   status: string;
+  image_url: string | null;
 }
 
 interface OfferData {
@@ -186,6 +188,19 @@ const Dashboard = () => {
           </button>
         </div>
       </div>
+
+      {/* Restaurant Photo */}
+      {restaurant && user && (
+        <div className="mt-4">
+          <p className="mb-2 text-sm font-medium text-foreground">Photo du restaurant</p>
+          <RestaurantImageUpload
+            imageUrl={restaurant.image_url}
+            onImageChange={(url) => setRestaurant((r) => r ? { ...r, image_url: url } : r)}
+            restaurantId={restaurant.id}
+            userId={user.id}
+          />
+        </div>
+      )}
 
       {/* Status / Trial */}
       {/* Subscription Management */}

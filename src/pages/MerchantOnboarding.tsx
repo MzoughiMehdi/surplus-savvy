@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Store, MapPin, Hash, Phone, ChevronRight, Check, Loader2, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { MERCHANT_PLAN } from "@/hooks/useSubscription";
+import RestaurantImageUpload from "@/components/RestaurantImageUpload";
 
 const categories = [
   { id: "restaurant", label: "Restaurant", icon: "🍽️" },
@@ -37,6 +38,7 @@ const MerchantOnboarding = () => {
   const [phone, setPhone] = useState("");
   const [category, setCategory] = useState("restaurant");
   const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   const handleCreateAccount = async () => {
     if (!email.trim() || !password.trim()) {
@@ -143,6 +145,7 @@ const MerchantOnboarding = () => {
           phone: phone.trim() || null,
           category,
           description: description.trim() || null,
+          image_url: imageUrl,
           subscription_plan: "trial",
         });
 
@@ -320,6 +323,13 @@ const MerchantOnboarding = () => {
 
             <textarea placeholder="Description de votre établissement (optionnel)" value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
               className="w-full rounded-xl border border-input bg-card px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" />
+
+            {user && (
+              <div>
+                <p className="mb-2 text-sm font-medium text-foreground">Photo du restaurant</p>
+                <RestaurantImageUpload imageUrl={imageUrl} onImageChange={setImageUrl} userId={user.id} />
+              </div>
+            )}
           </div>
 
           <div className="mt-6 flex gap-3">
