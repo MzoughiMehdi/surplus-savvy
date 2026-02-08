@@ -311,6 +311,7 @@ export type Database = {
           address: string
           business_id: string | null
           category: string
+          city: string | null
           created_at: string
           description: string | null
           id: string
@@ -319,6 +320,7 @@ export type Database = {
           opening_hours: Json | null
           owner_id: string
           phone: string | null
+          postal_code: string | null
           status: string
           stripe_account_id: string | null
           subscription_plan: string | null
@@ -330,6 +332,7 @@ export type Database = {
           address: string
           business_id?: string | null
           category?: string
+          city?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -338,6 +341,7 @@ export type Database = {
           opening_hours?: Json | null
           owner_id: string
           phone?: string | null
+          postal_code?: string | null
           status?: string
           stripe_account_id?: string | null
           subscription_plan?: string | null
@@ -349,6 +353,7 @@ export type Database = {
           address?: string
           business_id?: string | null
           category?: string
+          city?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -357,6 +362,7 @@ export type Database = {
           opening_hours?: Json | null
           owner_id?: string
           phone?: string | null
+          postal_code?: string | null
           status?: string
           stripe_account_id?: string | null
           subscription_plan?: string | null
