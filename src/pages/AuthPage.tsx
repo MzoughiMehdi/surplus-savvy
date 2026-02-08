@@ -4,7 +4,7 @@ import { ArrowLeft, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-type Mode = "login" | "signup" | "merchant-signup";
+type Mode = "login" | "signup" | "merchant-signup" | "forgot-password";
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -29,8 +29,33 @@ const AuthPage = () => {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) {
+      toast.error("Veuillez entrer votre email");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      toast.success("Un email de réinitialisation a été envoyé !");
+      setMode("login");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (mode === "forgot-password") {
+      return handleForgotPassword(e);
+    }
     if (!email.trim() || !password.trim()) {
       toast.error("Veuillez remplir tous les champs");
       return;
@@ -92,19 +117,21 @@ const AuthPage = () => {
 
       <div className="mb-8">
         <h1 className="font-display text-3xl font-bold text-foreground">
-          {mode === "login" ? "Bon retour !" : mode === "signup" ? "Créer un compte" : "Devenir partenaire"}
+          {mode === "login" ? "Bon retour !" : mode === "signup" ? "Créer un compte" : mode === "forgot-password" ? "Mot de passe oublié" : "Devenir partenaire"}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {mode === "login"
             ? "Connectez-vous pour retrouver vos offres"
             : mode === "signup"
               ? "Rejoignez la lutte contre le gaspillage alimentaire"
-              : "Inscrivez votre restaurant et commencez à vendre vos surplus"}
+              : mode === "forgot-password"
+                ? "Entrez votre email pour recevoir un lien de réinitialisation"
+                : "Inscrivez votre restaurant et commencez à vendre vos surplus"}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {mode !== "login" && (
+        {mode !== "login" && mode !== "forgot-password" && (
           <div className="relative">
             <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -128,32 +155,39 @@ const AuthPage = () => {
           />
         </div>
 
-        <div className="relative">
-          <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type={showPassword ? "text" : "password"}
-            placeholder="Mot de passe"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-xl border border-input bg-card py-3.5 pl-10 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-          />
-          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
-        </div>
+        {mode !== "forgot-password" && (
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Mot de passe"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-xl border border-input bg-card py-3.5 pl-10 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        )}
 
         <button
           type="submit"
           disabled={loading}
           className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-md transition-transform active:scale-[0.98] disabled:opacity-50"
         >
-          {loading ? "Chargement..." : mode === "login" ? "Se connecter" : "S'inscrire"}
+          {loading ? "Chargement..." : mode === "login" ? "Se connecter" : mode === "forgot-password" ? "Envoyer le lien" : "S'inscrire"}
         </button>
       </form>
 
       <div className="mt-6 space-y-3 text-center text-sm">
         {mode === "login" ? (
           <>
+            <p className="text-muted-foreground">
+              <button onClick={() => setMode("forgot-password")} className="font-semibold text-primary">
+                Mot de passe oublié ?
+              </button>
+            </p>
             <p className="text-muted-foreground">
               Pas encore de compte ?{" "}
               <button onClick={() => setMode("signup")} className="font-semibold text-primary">
@@ -167,6 +201,13 @@ const AuthPage = () => {
               </button>
             </p>
           </>
+        ) : mode === "forgot-password" ? (
+          <p className="text-muted-foreground">
+            Retour à la{" "}
+            <button onClick={() => setMode("login")} className="font-semibold text-primary">
+              connexion
+            </button>
+          </p>
         ) : (
           <>
             <p className="text-muted-foreground">
