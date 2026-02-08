@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CheckCircle, XCircle, Clock, Search } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Search, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ const statusColors: Record<string, string> = {
 };
 
 const AdminRestaurants = () => {
+  const navigate = useNavigate();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -109,7 +111,7 @@ const AdminRestaurants = () => {
                 </TableRow>
               ) : (
                 filtered.map((r) => (
-                  <TableRow key={r.id}>
+                  <TableRow key={r.id} className="cursor-pointer hover:bg-muted/50" onClick={() => navigate(`/admin/restaurants/${r.id}`)}>
                     <TableCell className="font-medium">{r.name}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">{r.address}</TableCell>
                     <TableCell>
@@ -127,26 +129,31 @@ const AdminRestaurants = () => {
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
-                      {r.status === "pending" && (
-                        <div className="flex justify-end gap-2">
-                          <Button size="sm" onClick={() => updateStatus(r.id, "approved")}>
-                            Approuver
-                          </Button>
-                          <Button size="sm" variant="destructive" onClick={() => updateStatus(r.id, "rejected")}>
-                            Rejeter
-                          </Button>
-                        </div>
-                      )}
-                      {r.status === "approved" && (
-                        <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, "rejected")}>
-                          Suspendre
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); navigate(`/admin/restaurants/${r.id}`); }}>
+                          <Eye className="h-4 w-4" />
                         </Button>
-                      )}
-                      {r.status === "rejected" && (
-                        <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, "approved")}>
-                          Réactiver
-                        </Button>
-                      )}
+                        {r.status === "pending" && (
+                          <>
+                            <Button size="sm" onClick={(e) => { e.stopPropagation(); updateStatus(r.id, "approved"); }}>
+                              Approuver
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); updateStatus(r.id, "rejected"); }}>
+                              Rejeter
+                            </Button>
+                          </>
+                        )}
+                        {r.status === "approved" && (
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); updateStatus(r.id, "rejected"); }}>
+                            Suspendre
+                          </Button>
+                        )}
+                        {r.status === "rejected" && (
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); updateStatus(r.id, "approved"); }}>
+                            Réactiver
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
