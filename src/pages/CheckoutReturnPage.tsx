@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,57 +13,30 @@ const CheckoutReturnPage = () => {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const sessionId = searchParams.get("session_id");
+  const processedRef = useRef(false);
 
   useEffect(() => {
-    if (!sessionId || !user) return;
+    if (!sessionId || !user || processedRef.current) return;
+    processedRef.current = true;
 
     const handleReturn = async () => {
       try {
-        // Verify session status via edge function
+        // Verify session AND create reservation server-side
         const { data, error } = await supabase.functions.invoke("verify-payment", {
           body: { sessionId },
         });
 
         if (error || !data?.success) {
+          console.error("Verify payment failed:", error, data);
           setStatus("error");
           return;
         }
 
-        const { offerId, restaurantId } = data;
-
-        // Check for existing reservation
-        const { data: existing } = await supabase
-          .from("reservations")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("offer_id", offerId)
-          .limit(1);
-
-        if (existing && existing.length > 0) {
-          setStatus("success");
-          setTimeout(() => navigate("/?tab=orders"), 1500);
-          return;
-        }
-
-        // Create reservation
-        const { error: insertError } = await supabase
-          .from("reservations")
-          .insert({
-            user_id: user.id,
-            offer_id: offerId,
-            restaurant_id: restaurantId || "",
-          });
-
-        if (insertError) {
-          console.error("Reservation error:", insertError);
-          toast.error("Erreur lors de la création de la réservation");
-          setStatus("error");
-          return;
-        }
-
+        // Invalidate all relevant caches
         queryClient.invalidateQueries({ queryKey: ["profile-stats"] });
         queryClient.invalidateQueries({ queryKey: ["reservations"] });
         queryClient.invalidateQueries({ queryKey: ["offers"] });
+
         toast.success("Paiement confirmé ! Votre réservation est prête.");
         setStatus("success");
         setTimeout(() => navigate("/?tab=orders"), 1500);
@@ -74,7 +47,7 @@ const CheckoutReturnPage = () => {
     };
 
     handleReturn();
-  }, [sessionId, user, navigate]);
+  }, [sessionId, user]);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-5">
