@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { Plus, Package, Clock, Trash2, Edit2, BarChart3, Store, LogOut, QrCode, CheckCircle, Users, CreditCard, ExternalLink, Loader2 } from "lucide-react";
+import { Plus, Package, Clock, Trash2, BarChart3, Store, LogOut, QrCode, CheckCircle, Users, CreditCard, ExternalLink, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import NotificationBell from "@/components/NotificationBell";
 import RestaurantImageUpload from "@/components/RestaurantImageUpload";
@@ -303,7 +303,12 @@ const Dashboard = () => {
 
       {/* Offers list */}
       <div className="mt-6">
-        <h2 className="font-display text-lg font-bold text-foreground">Vos offres</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-lg font-bold text-foreground">Vos offres</h2>
+          <span className="text-xs text-muted-foreground">
+            {offers.filter((o) => o.is_active).length} active(s) sur {offers.length} offre(s)
+          </span>
+        </div>
         {offers.length === 0 ? (
           <p className="mt-4 text-center text-sm text-muted-foreground">Aucune offre pour le moment</p>
         ) : (
@@ -316,7 +321,15 @@ const Dashboard = () => {
                 <div className="p-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-sm font-semibold text-foreground">{offer.title}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-foreground">{offer.title}</p>
+                        <Badge
+                          variant={offer.items_left === 0 ? "destructive" : offer.is_active ? "default" : "secondary"}
+                          className="text-[10px]"
+                        >
+                          {offer.items_left === 0 ? "Rupture" : offer.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
                       <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                         <Clock className="h-3 w-3" />
                         {offer.pickup_start} – {offer.pickup_end}
@@ -328,10 +341,14 @@ const Dashboard = () => {
                       </div>
                     </div>
                     <div className="flex gap-1">
-                      <button onClick={() => toggleOffer(offer.id, offer.is_active)}
-                        className="rounded-lg bg-secondary p-2 text-muted-foreground hover:text-foreground">
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
+                      <Button
+                        size="sm"
+                        variant={offer.is_active ? "outline" : "default"}
+                        className="text-xs h-8"
+                        onClick={() => toggleOffer(offer.id, offer.is_active)}
+                      >
+                        {offer.is_active ? "Désactiver" : "Activer"}
+                      </Button>
                       <button onClick={() => deleteOffer(offer.id)}
                         className="rounded-lg bg-secondary p-2 text-muted-foreground hover:text-destructive">
                         <Trash2 className="h-3.5 w-3.5" />
