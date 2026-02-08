@@ -27,6 +27,7 @@ export const useOffers = () => {
       .from("offers")
       .select("*, restaurants(name, image_url, address)")
       .eq("is_active", true)
+      .gt("items_left", 0)
       .order("created_at", { ascending: false });
 
     if (error) {
