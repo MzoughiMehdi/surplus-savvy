@@ -405,6 +405,9 @@ export type Database = {
           created_at: string
           id: string
           rating: number
+          rating_presentation: number | null
+          rating_quality: number | null
+          rating_quantity: number | null
           reservation_id: string
           restaurant_id: string
           user_id: string
@@ -413,6 +416,9 @@ export type Database = {
           created_at?: string
           id?: string
           rating: number
+          rating_presentation?: number | null
+          rating_quality?: number | null
+          rating_quantity?: number | null
           reservation_id: string
           restaurant_id: string
           user_id: string
@@ -421,6 +427,9 @@ export type Database = {
           created_at?: string
           id?: string
           rating?: number
+          rating_presentation?: number | null
+          rating_quality?: number | null
+          rating_quantity?: number | null
           reservation_id?: string
           restaurant_id?: string
           user_id?: string
@@ -570,6 +579,9 @@ export type Database = {
       get_all_restaurant_ratings: {
         Args: never
         Returns: {
+          avg_presentation: number
+          avg_quality: number
+          avg_quantity: number
           avg_rating: number
           restaurant_name: string
           review_count: number
@@ -578,6 +590,9 @@ export type Database = {
       get_restaurant_rating: {
         Args: { p_restaurant_id: string }
         Returns: {
+          avg_presentation: number
+          avg_quality: number
+          avg_quantity: number
           avg_rating: number
           review_count: number
         }[]

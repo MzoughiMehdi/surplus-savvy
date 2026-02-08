@@ -18,6 +18,12 @@ interface ReservationConfirmationProps {
   restaurantId?: string;
 }
 
+const CRITERIA = [
+  { key: "quality" as const, label: "Qualité des produits" },
+  { key: "quantity" as const, label: "Quantité / rapport qualité-prix" },
+  { key: "presentation" as const, label: "Présentation / emballage" },
+];
+
 const ReservationConfirmation = ({
   pickupCode,
   offerTitle,
@@ -32,12 +38,9 @@ const ReservationConfirmation = ({
 }: ReservationConfirmationProps) => {
   const { submitReview, submitting } = useSubmitReview();
   const { review, loading: reviewLoading, setReview } = useUserReviewForReservation(reservationId);
-  const [pendingRating, setPendingRating] = useState(0);
-  const qrValue = JSON.stringify({
-    code: pickupCode,
-    restaurant: restaurantName,
-    offer: offerTitle,
-  });
+  const [pending, setPending] = useState({ quality: 0, quantity: 0, presentation: 0 });
+
+  const qrValue = JSON.stringify({ code: pickupCode, restaurant: restaurantName, offer: offerTitle });
 
   const statusConfig = {
     confirmed: { label: "En attente", color: "text-amber-600", bg: "bg-amber-100", icon: Clock },
@@ -48,6 +51,7 @@ const ReservationConfirmation = ({
 
   const s = statusConfig[status as keyof typeof statusConfig] ?? statusConfig.confirmed;
   const StatusIcon = s.icon;
+  const allFilled = pending.quality > 0 && pending.quantity > 0 && pending.presentation > 0;
 
   return (
     <div className="min-h-screen bg-background px-5 pb-24 pt-12">
@@ -76,23 +80,14 @@ const ReservationConfirmation = ({
       {status === "accepted" && (
         <div className="mt-8 flex justify-center">
           <div className="rounded-2xl bg-card p-6 shadow-md">
-            <QRCodeSVG
-              value={qrValue}
-              size={200}
-              level="H"
-              includeMargin
-              bgColor="transparent"
-              fgColor="hsl(150, 25%, 12%)"
-            />
+            <QRCodeSVG value={qrValue} size={200} level="H" includeMargin bgColor="transparent" fgColor="hsl(150, 25%, 12%)" />
           </div>
         </div>
       )}
 
       <div className="mt-6 text-center">
         <p className="text-xs text-muted-foreground">Code de retrait</p>
-        <p className="mt-1 font-mono text-2xl font-bold tracking-widest text-primary">
-          {pickupCode.toUpperCase()}
-        </p>
+        <p className="mt-1 font-mono text-2xl font-bold tracking-widest text-primary">{pickupCode.toUpperCase()}</p>
       </div>
 
       <div className="mt-8 space-y-3 rounded-2xl bg-card p-5 shadow-sm">
@@ -108,9 +103,7 @@ const ReservationConfirmation = ({
           <Clock className="h-4 w-4 text-primary" />
           <div>
             <p className="text-xs text-muted-foreground">Créneau de retrait</p>
-            <p className="text-sm font-semibold text-foreground">
-              Aujourd'hui, {pickupStart} – {pickupEnd}
-            </p>
+            <p className="text-sm font-semibold text-foreground">Aujourd'hui, {pickupStart} – {pickupEnd}</p>
           </div>
         </div>
         <div className="border-t border-border pt-3">
@@ -121,31 +114,50 @@ const ReservationConfirmation = ({
         </div>
       </div>
 
-
       {status === "completed" && reservationId && restaurantId && !reviewLoading && (
-        <div className="mt-6 rounded-2xl bg-card p-5 shadow-sm text-center">
+        <div className="mt-6 rounded-2xl bg-card p-5 shadow-sm">
           {review ? (
             <>
-              <p className="text-sm text-muted-foreground mb-2">Votre note</p>
-              <StarRating value={review.rating} readonly size="lg" />
+              <p className="text-sm font-medium text-foreground mb-4 text-center">Votre évaluation</p>
+              {CRITERIA.map((c) => (
+                <div key={c.key} className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">{c.label}</span>
+                  <StarRating value={(review as any)[`rating_${c.key}`] || 0} readonly size="sm" />
+                </div>
+              ))}
             </>
           ) : (
             <>
-              <p className="text-sm font-medium text-foreground mb-3">Comment était votre commande ?</p>
-              <div className="flex justify-center mb-3">
-                <StarRating value={pendingRating} onChange={setPendingRating} size="lg" />
-              </div>
-              {pendingRating > 0 && (
+              <p className="text-sm font-medium text-foreground mb-4 text-center">Comment était votre panier ?</p>
+              {CRITERIA.map((c) => (
+                <div key={c.key} className="flex items-center justify-between mb-3">
+                  <span className="text-sm text-muted-foreground">{c.label}</span>
+                  <StarRating
+                    value={pending[c.key]}
+                    onChange={(v) => setPending((p) => ({ ...p, [c.key]: v }))}
+                    size="sm"
+                  />
+                </div>
+              ))}
+              {allFilled && (
                 <Button
                   onClick={async () => {
-                    const ok = await submitReview(reservationId, restaurantId, pendingRating);
-                    if (ok) setReview({ rating: pendingRating });
+                    const ok = await submitReview(reservationId, restaurantId, pending.quality, pending.quantity, pending.presentation);
+                    if (ok) {
+                      const global = Math.round((pending.quality + pending.quantity + pending.presentation) / 3);
+                      setReview({
+                        rating: global,
+                        rating_quality: pending.quality,
+                        rating_quantity: pending.quantity,
+                        rating_presentation: pending.presentation,
+                      });
+                    }
                   }}
                   disabled={submitting}
-                  className="w-full"
+                  className="w-full mt-2"
                 >
                   {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  Envoyer ma note
+                  Envoyer mon évaluation
                 </Button>
               )}
             </>
