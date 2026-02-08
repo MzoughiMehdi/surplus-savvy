@@ -1,43 +1,43 @@
 
 
-# Ajout d'une page de detail restaurant dans l'admin
+# Correction de la visibilite des offres multiples
 
-## Probleme actuel
+## Probleme identifie
 
-La page `/admin/restaurants` affiche une liste avec nom, adresse, categorie, plan et statut, mais il n'est pas possible de :
-- Voir les informations completes d'un restaurant (telephone, description, horaires, image, proprietaire)
-- Contacter le proprietaire (email)
-- Parcourir les details d'un restaurant specifique
+Apres verification en base de donnees, le systeme supporte bien plusieurs offres par restaurant. Le probleme vient de deux choses :
+
+1. **L'offre "boti roti" est desactivee** (`is_active = false`) -- elle n'apparait donc pas cote consommateur. Sur le dashboard marchand, le bouton pour activer/desactiver n'est pas assez clair (c'est une icone crayon).
+
+2. **Les offres avec stock a zero** (`items_left = 0`) restent visibles mais ne peuvent pas etre reservees, ce qui est confus.
 
 ## Ce qui sera fait
 
-### 1. Nouvelle page "Detail Restaurant" (`/admin/restaurants/:id`)
+### 1. Ameliorer le dashboard marchand pour mieux gerer les offres
 
-Une page dediee affichant toutes les informations d'un restaurant :
+- Remplacer l'icone crayon par un **bouton toggle explicite** "Activer" / "Desactiver" avec couleurs distinctes (vert/gris)
+- Ajouter un **badge de statut** ("Active", "Inactive", "Rupture") sur chaque carte d'offre
+- Ajouter un **compteur** en haut : "X active(s) sur Y offre(s)"
 
-- **Informations generales** : nom, adresse, categorie, description, image
-- **Contact** : telephone du restaurant + email du proprietaire (recupere depuis `profiles`)
-- **Abonnement** : plan, date de debut, fin de la periode d'essai
-- **Statut** : avec boutons d'action (approuver/rejeter/suspendre)
-- **Statistiques** : nombre d'offres, nombre de reservations, note moyenne
-- **Bouton "Contacter"** : lien `mailto:` vers l'email du proprietaire pour envoyer un email directement
+### 2. Filtrer les offres en rupture de stock cote consommateur
 
-### 2. Modification de la liste des restaurants
+- Dans `useOffers.ts`, ajouter un filtre `items_left > 0` pour ne pas afficher les offres sans stock disponible
+- Cela evitera d'afficher des offres que personne ne peut reserver
 
-- Chaque ligne du tableau deviendra cliquable pour naviguer vers la page de detail
-- Ajout d'un bouton "Voir" sur chaque restaurant
+### 3. Desactiver automatiquement les offres a zero stock (optionnel mais recommande)
 
-### 3. Mise a jour du routage
-
-- Ajout de la route `/admin/restaurants/:id` dans `App.tsx`
+- Quand `items_left` atteint 0 apres une reservation, l'offre reste active mais n'est plus visible grace au filtre ci-dessus
 
 ## Details techniques
 
-- Nouvelle page : `src/pages/admin/AdminRestaurantDetail.tsx`
-- Requete Supabase joignant `restaurants` avec `profiles` (via `owner_id`) pour recuperer l'email et le nom du proprietaire
-- Requete RPC `get_restaurant_rating` pour la note moyenne
-- Comptage des offres et reservations liees au restaurant
-- Navigation avec `react-router-dom` (`useParams`, `useNavigate`)
-- Bouton retour vers la liste
-- Design coherent avec le reste du back-office (memes composants Card, Badge, Button)
+### Fichiers modifies
+
+- **`src/pages/Dashboard.tsx`** :
+  - Ajout d'un badge `Active` / `Inactive` / `Rupture` sur chaque offre
+  - Remplacement de l'icone `Edit2` par un bouton texte "Activer" / "Desactiver"
+  - Ajout d'un compteur d'offres actives en en-tete de section
+
+- **`src/hooks/useOffers.ts`** :
+  - Ajout du filtre `.gt("items_left", 0)` dans la requete Supabase pour exclure les offres en rupture de stock cote consommateur
+
+Aucune modification de base de donnees necessaire.
 
