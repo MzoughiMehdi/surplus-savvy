@@ -1,56 +1,150 @@
 
+# Paniers surprise recurrents + Refonte visuelle TGTG
 
-# Correction des stats profil + adresses sur la carte
+## 1. Refonte des couleurs -- Inspiration Too Good To Go
 
-## Probleme 1 : Stats "Repas sauves" et "Euros economises"
+Remplacement de la palette terracotta actuelle par une palette vert-teal profond, fond clair chaud, tout en gardant une identite propre.
 
-Dans `ProfilePage.tsx` (ligne 31), la requete filtre avec `.eq("status", "completed")`. Or les commandes payees ont le statut `"confirmed"` par defaut. Elles ne sont donc jamais comptees.
+### Nouvelles variables CSS dans `src/index.css`
 
-**Solution** : Remplacer `.eq("status", "completed")` par `.in("status", ["confirmed", "completed"])`.
+| Variable | Actuel | Nouveau |
+|---|---|---|
+| `--primary` | `16 70% 50%` (orange) | `173 80% 26%` (teal profond) |
+| `--primary-foreground` | `35 35% 97%` | `0 0% 100%` (blanc) |
+| `--background` | `35 35% 97%` | `30 20% 97%` (blanc casse chaud) |
+| `--card` | `35 30% 99%` | `0 0% 100%` (blanc pur) |
+| `--accent` | `45 85% 52%` | `45 90% 55%` (jaune-dore, badges prix) |
+| `--success` | `160 50% 40%` | `160 55% 40%` (vert inchange) |
+| `--ring` | `16 70% 50%` | `173 80% 26%` (teal) |
+| `--eco-light` | `160 25% 94%` | `173 30% 93%` (teal clair) |
 
-## Probleme 2 : Adresses erronees sur la carte
+Le mode dark sera aussi ajuste avec les teintes teal. Le gradient `text-gradient-warm` deviendra un degrade teal vers accent.
 
-Actuellement, `MapView.tsx` ignore completement l'adresse reelle des restaurants. Les positions sont generees avec une formule mathematique fictive (lignes 20-24) :
+Tous les composants (BottomNav, OfferCard, CategoryFilter, ImpactBanner, OfferDetail, HeroSection) utilisent deja les variables CSS, donc ils s'adapteront automatiquement sans modification de code.
 
-```text
-lat: 48.8566 + Math.sin(i * 1.8) * 0.012
-lng: 2.3522 + Math.cos(i * 1.5) * 0.015
-```
+## 2. Base de donnees -- Nouvelles tables
 
-Cela place les marqueurs a des positions aleatoires autour de Paris, sans rapport avec l'adresse reelle.
+### Table `surprise_bag_config`
 
-**Solution** : Utiliser l'API gratuite de geocodage OpenStreetMap (Nominatim) pour convertir l'adresse textuelle de chaque restaurant en coordonnees GPS reelles, puis placer les marqueurs aux bonnes positions.
+Une ligne par restaurant, stocke la configuration par defaut :
 
-### Fonctionnement
+| Colonne | Type | Detail |
+|---|---|---|
+| id | uuid PK | |
+| restaurant_id | uuid FK unique | Vers restaurants |
+| base_price | numeric NOT NULL | Valeur reelle, minimum 10 |
+| daily_quantity | integer NOT NULL | Nombre par defaut/jour |
+| pickup_start | time NOT NULL | Heure debut retrait |
+| pickup_end | time NOT NULL | Heure fin retrait |
+| is_active | boolean | Default true |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
 
-```text
-Adresse "35 Avenue de la Grande Armee, Paris"
-        |
-        v
-API Nominatim (gratuite, pas de cle API)
-        |
-        v
-Coordonnees: lat 48.8748, lng 2.2860
-        |
-        v
-Marqueur place a la bonne position sur la carte
-```
+RLS : lecture/ecriture par le proprietaire du restaurant, lecture admins.
 
-### Details techniques
+### Table `daily_overrides`
 
-**`src/components/MapView.tsx`** :
-- Supprimer la formule de positions fictives
-- Ajouter une fonction `geocodeAddress(address: string)` qui appelle `https://nominatim.openstreetmap.org/search?q={address}&format=json&limit=1`
-- Au montage du composant, geocoder toutes les adresses des restaurants
-- Placer les marqueurs aux coordonnees reelles obtenues
-- Ajouter un cache local (Map) pour eviter de re-geocoder les memes adresses
-- Afficher l'adresse reelle dans le popup de chaque marqueur
+Ajustements pour un jour specifique :
 
-**`src/pages/ProfilePage.tsx`** :
-- Ligne 31 : remplacer `.eq("status", "completed")` par `.in("status", ["confirmed", "completed"])`
+| Colonne | Type | Detail |
+|---|---|---|
+| id | uuid PK | |
+| restaurant_id | uuid FK | Vers restaurants |
+| date | date NOT NULL | Jour concerne |
+| quantity | integer nullable | Null = utiliser defaut |
+| pickup_start | time nullable | |
+| pickup_end | time nullable | |
+| is_suspended | boolean | Default false |
+| created_at | timestamptz | |
 
-## Fichiers impactes
+Contrainte unique sur `(restaurant_id, date)`. RLS : lecture/ecriture proprietaire, lecture admins.
 
-- **`src/components/MapView.tsx`** : geocodage reel des adresses
-- **`src/pages/ProfilePage.tsx`** : correction du filtre de statut
+### Colonne `date` sur la table `offers`
 
+Ajouter une colonne `date` (type date, nullable) pour identifier les paniers du jour.
+
+## 3. Prix de vente : 40% du prix initial
+
+Le prix affiche = `base_price * 0.40` (reduction de 60%).
+
+Le consommateur voit toujours les deux prix : le prix initial barre et le prix de vente.
+
+## 4. Dashboard commercant -- Refonte complete
+
+Remplacement du formulaire de creation d'offres ponctuelles par une interface de configuration de disponibilite.
+
+### Section "Configuration par defaut" (`SurpriseBagConfig.tsx`)
+
+- Valeur moyenne du panier (input numerique, min 10 EUR)
+- Affichage automatique du prix de vente (40% de la valeur) a cote
+- Nombre de paniers par jour (input numerique)
+- Creneau de retrait par defaut (heure debut / fin)
+- Switch actif/inactif
+- Sauvegarde immediate a chaque modification
+
+### Section "Calendrier" (`SurpriseBagCalendar.tsx`)
+
+- Calendrier mensuel avec pour chaque jour :
+  - Nombre de paniers prevus (defaut ou override)
+  - Indicateur visuel si suspendu
+  - Nombre de paniers deja reserves
+- Clic sur un jour ouvre un panneau (`DayOverridePanel.tsx`) pour :
+  - Modifier la quantite du jour
+  - Modifier le creneau de retrait du jour
+  - Suspendre la vente pour ce jour
+- Les modifications s'appliquent immediatement aux paniers non reserves
+
+### Section "Reservations" (conservee mais enrichie)
+
+- Le commercant peut maintenant **confirmer** ou **annuler** chaque reservation (au lieu de seulement "marquer comme retire")
+- Workflow : confirmed -> accepted (par le commercant) -> completed (retrait) ou cancelled
+
+### Generation automatique des offres du jour
+
+Au chargement du dashboard, le systeme :
+1. Verifie si une offre "Panier surprise" existe pour aujourd'hui
+2. Si non, en cree une automatiquement basee sur la config + override du jour
+3. Si oui, ajuste le stock (`items_left`) et le creneau si un override a ete modifie (uniquement pour les paniers non reserves)
+
+## 5. Onboarding commercant
+
+Ajout d'une etape dans `MerchantOnboarding.tsx` apres la creation du restaurant :
+- Valeur moyenne du panier
+- Nombre de paniers par jour
+- Creneau de retrait
+
+Ces valeurs seront inserees dans `surprise_bag_config`.
+
+## 6. Cote consommateur
+
+### `useOffers.ts`
+
+- Filtrer les offres avec `date = today` (en plus des filtres existants `is_active` et `items_left > 0`)
+
+### `OfferCard.tsx` et `OfferDetail.tsx`
+
+- Afficher "Panier surprise" avec le nom du restaurant
+- Les deux prix restent visibles (original barre + prix de vente)
+- Le creneau de retrait exact est affiche
+- Aucune description detaillee (c'est une surprise)
+
+## 7. Fichiers impactes
+
+### Nouveaux fichiers
+- `src/components/SurpriseBagConfig.tsx`
+- `src/components/SurpriseBagCalendar.tsx`
+- `src/components/DayOverridePanel.tsx`
+
+### Fichiers modifies
+- `src/index.css` -- nouvelle palette de couleurs
+- `src/pages/Dashboard.tsx` -- refonte majeure (config + calendrier remplacent le formulaire d'offres)
+- `src/hooks/useOffers.ts` -- filtre sur `date = today`
+- `src/pages/MerchantOnboarding.tsx` -- etape de config panier surprise
+- `src/components/OfferCard.tsx` -- ajustement texte "Panier surprise"
+- `src/components/OfferDetail.tsx` -- ajustement texte
+- `src/components/HeroSection.tsx` -- ajustement du gradient pour les nouvelles couleurs
+
+### Migrations SQL
+1. Creer table `surprise_bag_config` avec RLS
+2. Creer table `daily_overrides` avec RLS et contrainte unique
+3. Ajouter colonne `date` a la table `offers`
