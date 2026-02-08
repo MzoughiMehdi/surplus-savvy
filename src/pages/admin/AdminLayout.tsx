@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import { useEffect } from "react";
-import { LayoutDashboard, Store, BarChart3, Shield, LogOut } from "lucide-react";
+import { LayoutDashboard, Store, BarChart3, Shield, LogOut, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import NotificationBell from "@/components/NotificationBell";
 import {
@@ -21,6 +21,7 @@ const navItems = [
   { title: "Vue d'ensemble", url: "/admin", icon: LayoutDashboard },
   { title: "Restaurants", url: "/admin/restaurants", icon: Store },
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
+  { title: "Paramètres", url: "/admin/settings", icon: Settings },
 ];
 
 const AdminLayout = () => {

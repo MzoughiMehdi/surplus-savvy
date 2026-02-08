@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Clock, QrCode, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import ReservationConfirmation from "@/components/ReservationConfirmation";
-import { toast } from "sonner";
+import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -28,37 +28,23 @@ interface Reservation {
 
 const OrdersPage = () => {
   const { user } = useAuth();
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Reservation | null>(null);
 
-  const fetchReservations = async () => {
-    if (!user) return;
-    try {
+  const { data: reservations = [], isLoading } = useQuery({
+    queryKey: ["reservations", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
       const { data, error } = await supabase
         .from("reservations")
         .select("*, offers(title, discounted_price, pickup_start, pickup_end), restaurants(name)")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Error fetching reservations:", error);
-        toast.error("Erreur lors du chargement des commandes");
-        setReservations([]);
-      } else {
-        setReservations((data as unknown as Reservation[]) ?? []);
-      }
-    } catch (err) {
-      console.error("Unexpected error fetching reservations:", err);
-      setReservations([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchReservations();
-  }, [user]);
+      if (error) throw error;
+      return (data as unknown as Reservation[]) ?? [];
+    },
+    enabled: !!user,
+  });
 
   if (selected) {
     return (
@@ -90,7 +76,7 @@ const OrdersPage = () => {
         <p className="text-sm text-muted-foreground">{reservations.length} réservation{reservations.length > 1 ? "s" : ""}</p>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <p className="px-5 text-muted-foreground">Chargement...</p>
       ) : reservations.length === 0 ? (
         <div className="px-5 py-12 text-center">

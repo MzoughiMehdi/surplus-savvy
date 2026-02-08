@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { Plus, Package, Clock, Trash2, BarChart3, Store, LogOut, QrCode, CheckCircle, Users, CreditCard, ExternalLink, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Plus, Package, Clock, Trash2, BarChart3, Store, LogOut, QrCode, CheckCircle, Users, CreditCard, ExternalLink, Loader2, Landmark } from "lucide-react";
 import { toast } from "sonner";
 import NotificationBell from "@/components/NotificationBell";
 import RestaurantImageUpload from "@/components/RestaurantImageUpload";
@@ -42,6 +43,72 @@ interface ReservationData {
   offers: { title: string; discounted_price: number };
   customer_name?: string;
 }
+
+const ConnectSection = ({ restaurantId }: { restaurantId?: string }) => {
+  const [connectLoading, setConnectLoading] = useState(false);
+
+  const { data: connectStatus } = useQuery({
+    queryKey: ["connect-status", restaurantId],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("check-connect-status", {
+        body: { restaurantId },
+      });
+      if (error) throw error;
+      return data as { connected: boolean; chargesEnabled: boolean };
+    },
+    enabled: !!restaurantId,
+    refetchInterval: 30000,
+  });
+
+  const handleSetupConnect = async () => {
+    if (!restaurantId) return;
+    setConnectLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-connect-account", {
+        body: { restaurantId },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch {
+      toast.error("Erreur lors de la configuration");
+    } finally {
+      setConnectLoading(false);
+    }
+  };
+
+  return (
+    <div className="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Landmark className="h-4 w-4 text-primary" />
+            Paiements
+          </p>
+          {connectStatus?.chargesEnabled ? (
+            <p className="mt-0.5 text-xs text-muted-foreground flex items-center gap-1">
+              <CheckCircle className="h-3 w-3 text-success" /> Compte actif — virements automatiques
+            </p>
+          ) : connectStatus?.connected ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">Onboarding en cours — finalisez votre inscription</p>
+          ) : (
+            <p className="mt-0.5 text-xs text-muted-foreground">Configurez vos paiements pour recevoir vos revenus</p>
+          )}
+        </div>
+        {connectStatus?.chargesEnabled ? (
+          <Badge variant="secondary" className="text-[10px]">Actif</Badge>
+        ) : (
+          <Button size="sm" onClick={handleSetupConnect} disabled={connectLoading}>
+            {connectLoading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+            {connectStatus?.connected ? "Continuer" : "Configurer"}
+            <ExternalLink className="ml-1 h-3 w-3" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -238,6 +305,9 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+
+      {/* Stripe Connect - Paiements */}
+      <ConnectSection restaurantId={restaurant?.id} />
 
       {restaurant?.status === "pending" && (
         <div className="mt-4 rounded-xl bg-warning/10 p-4">

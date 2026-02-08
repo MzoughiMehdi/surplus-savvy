@@ -14,6 +14,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminRestaurants from "./pages/admin/AdminRestaurants";
 import AdminRestaurantDetail from "./pages/admin/AdminRestaurantDetail";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
+import AdminSettings from "./pages/admin/AdminSettings";
 import CheckoutPage from "./pages/CheckoutPage";
 import CheckoutReturnPage from "./pages/CheckoutReturnPage";
 
@@ -38,6 +39,7 @@ const App = () => (
               <Route path="restaurants" element={<AdminRestaurants />} />
               <Route path="restaurants/:id" element={<AdminRestaurantDetail />} />
               <Route path="analytics" element={<AdminAnalytics />} />
+              <Route path="settings" element={<AdminSettings />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

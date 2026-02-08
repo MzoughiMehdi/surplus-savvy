@@ -12,6 +12,12 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseAdmin = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } }
+  );
+
   const supabaseClient = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_ANON_KEY") ?? ""
@@ -38,9 +44,32 @@ serve(async (req) => {
       customerId = customers.data[0].id;
     }
 
-    const origin = req.headers.get("origin") || "http://localhost:5173";
+    // Get commission rate
+    const { data: settings } = await supabaseAdmin
+      .from("platform_settings")
+      .select("commission_rate")
+      .limit(1)
+      .single();
 
-    const session = await stripe.checkout.sessions.create({
+    const commissionRate = settings?.commission_rate ?? 50;
+
+    // Get restaurant's Stripe Connect account
+    let stripeAccountId: string | null = null;
+    if (restaurantId) {
+      const { data: restaurant } = await supabaseAdmin
+        .from("restaurants")
+        .select("stripe_account_id")
+        .eq("id", restaurantId)
+        .single();
+      stripeAccountId = restaurant?.stripe_account_id ?? null;
+    }
+
+    const origin = req.headers.get("origin") || "http://localhost:5173";
+    const amountCents = Math.round(amount * 100);
+    const platformFeeCents = Math.round(amountCents * commissionRate / 100);
+
+    // Build session params
+    const sessionParams: any = {
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
       line_items: [
@@ -48,7 +77,7 @@ serve(async (req) => {
           price_data: {
             currency: "eur",
             product_data: { name: offerTitle || "Panier anti-gaspi" },
-            unit_amount: Math.round(amount * 100),
+            unit_amount: amountCents,
           },
           quantity: 1,
         },
@@ -61,9 +90,42 @@ serve(async (req) => {
         user_id: user.id,
         restaurant_id: restaurantId || "",
       },
-    });
+    };
 
-    console.log("[CREATE-PAYMENT] Embedded session created for offer:", offerId);
+    // If restaurant has a Connect account, use it for split payments
+    if (stripeAccountId) {
+      sessionParams.payment_intent_data = {
+        application_fee_amount: platformFeeCents,
+        transfer_data: {
+          destination: stripeAccountId,
+        },
+      };
+      console.log("[CREATE-PAYMENT] Using Connect split:", {
+        total: amountCents,
+        platformFee: platformFeeCents,
+        destination: stripeAccountId,
+      });
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+
+    // Record the payout split
+    if (restaurantId) {
+      const restaurantAmount = amount - (amount * commissionRate / 100);
+      const platformAmount = amount * commissionRate / 100;
+
+      await supabaseAdmin.from("restaurant_payouts").insert({
+        restaurant_id: restaurantId,
+        total_amount: amount,
+        commission_rate: commissionRate,
+        platform_amount: platformAmount,
+        restaurant_amount: restaurantAmount,
+        status: stripeAccountId ? "pending" : "pending",
+        stripe_transfer_id: null,
+      });
+    }
+
+    console.log("[CREATE-PAYMENT] Session created for offer:", offerId);
 
     return new Response(JSON.stringify({ clientSecret: session.client_secret }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
