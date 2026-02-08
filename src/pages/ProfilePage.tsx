@@ -2,6 +2,8 @@ import { User, ShoppingBag, Settings, HelpCircle, LogOut, ChevronRight, Leaf, St
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const ProfilePage = () => {
   const { user, profile, isAdmin, signOut } = useAuth();
@@ -9,10 +11,31 @@ const ProfilePage = () => {
 
   const menuItems = [
     { icon: ShoppingBag, label: "Mes commandes", description: "Historique et commandes en cours" },
-    { icon: Leaf, label: "Mon impact", description: "Repas sauvés et CO₂ évité" },
+    { icon: Leaf, label: "Mon impact", description: "Repas sauvés et économies" },
     { icon: Settings, label: "Paramètres", description: "Notifications, langue, compte" },
     { icon: HelpCircle, label: "Aide & Contact", description: "FAQ et support client" },
   ];
+
+  const { data: stats } = useQuery({
+    queryKey: ["profile-stats", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data: reservations } = await supabase
+        .from("reservations")
+        .select("id, offer_id, offers(discounted_price, original_price)")
+        .eq("user_id", user!.id)
+        .eq("status", "completed");
+
+      const mealsSaved = reservations?.length ?? 0;
+      const eurosSaved = reservations?.reduce((sum, r) => {
+        const offer = r.offers as any;
+        if (!offer) return sum;
+        return sum + (Number(offer.original_price) - Number(offer.discounted_price));
+      }, 0) ?? 0;
+
+      return { mealsSaved, eurosSaved };
+    },
+  });
 
   const handleAuth = () => navigate("/auth");
   const handleSignOut = async () => {
@@ -89,17 +112,13 @@ const ProfilePage = () => {
       {user && (
         <>
           {/* Stats */}
-          <div className="mx-5 mt-5 grid grid-cols-3 gap-3">
+          <div className="mx-5 mt-5 grid grid-cols-2 gap-3">
             <div className="rounded-xl bg-eco-light p-3 text-center">
-              <p className="text-xl font-bold text-primary">0</p>
+              <p className="text-xl font-bold text-primary">{stats?.mealsSaved ?? 0}</p>
               <p className="mt-0.5 text-[10px] text-muted-foreground">Repas sauvés</p>
             </div>
             <div className="rounded-xl bg-eco-light p-3 text-center">
-              <p className="text-xl font-bold text-primary">0 kg</p>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">CO₂ évité</p>
-            </div>
-            <div className="rounded-xl bg-eco-light p-3 text-center">
-              <p className="text-xl font-bold text-primary">0 €</p>
+              <p className="text-xl font-bold text-primary">{(stats?.eurosSaved ?? 0).toFixed(0)} €</p>
               <p className="mt-0.5 text-[10px] text-muted-foreground">Économisé</p>
             </div>
           </div>
