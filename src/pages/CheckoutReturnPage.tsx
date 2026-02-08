@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -9,6 +10,7 @@ const CheckoutReturnPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const sessionId = searchParams.get("session_id");
 
@@ -59,6 +61,7 @@ const CheckoutReturnPage = () => {
           return;
         }
 
+        queryClient.invalidateQueries({ queryKey: ["profile-stats"] });
         toast.success("Paiement confirmé ! Votre réservation est prête.");
         setStatus("success");
         setTimeout(() => navigate("/?tab=orders"), 1500);

@@ -60,21 +60,6 @@ const OrdersPage = () => {
     fetchReservations();
   }, [user]);
 
-  const cancelReservation = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from("reservations")
-        .update({ status: "cancelled" })
-        .eq("id", id);
-      if (error) { toast.error(error.message); return; }
-      toast.success("Réservation annulée");
-      setSelected(null);
-      fetchReservations();
-    } catch {
-      toast.error("Erreur inattendue");
-    }
-  };
-
   if (selected) {
     return (
       <ReservationConfirmation
@@ -86,7 +71,6 @@ const OrdersPage = () => {
         price={selected.offers?.discounted_price ?? 0}
         status={selected.status}
         onBack={() => setSelected(null)}
-        onCancel={selected.status === "confirmed" ? () => cancelReservation(selected.id) : undefined}
         reservationId={selected.id}
         restaurantId={selected.restaurant_id}
       />
