@@ -5,7 +5,11 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-const ProfilePage = () => {
+interface ProfilePageProps {
+  onNavigate?: (tab: string) => void;
+}
+
+const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
   const { user, profile, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -129,6 +133,9 @@ const ProfilePage = () => {
               const Icon = item.icon;
               return (
                 <button key={item.label}
+                  onClick={() => {
+                    if (item.label === "Mes commandes" && onNavigate) onNavigate("orders");
+                  }}
                   className={`flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-secondary/50 active:bg-secondary ${
                     i !== menuItems.length - 1 ? "border-b border-border" : ""
                   }`}>
