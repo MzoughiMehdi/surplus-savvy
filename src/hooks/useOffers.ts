@@ -53,7 +53,7 @@ export const useOffers = () => {
       pickupStart: o.pickup_start?.slice(0, 5) ?? "",
       pickupEnd: o.pickup_end?.slice(0, 5) ?? "",
       itemsLeft: o.items_left,
-      image: o.image_url ?? "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=300&fit=crop",
+      image: o.image_url ?? o.restaurants?.image_url ?? "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=300&fit=crop",
     }));
 
     setOffers(mapped);
