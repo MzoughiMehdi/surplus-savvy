@@ -1,38 +1,27 @@
 
 
-# Correction des "Euros economises" sur la page Profil
+# Mise a jour des stats profil + suppression de l'annulation
 
-## Probleme identifie
+## Problemes identifies
 
-La requete pour calculer les statistiques retourne bien les reservations completees, mais le champ `offers` est `null` car les politiques de securite de la base de donnees bloquent l'acces aux offres.
+1. **Les stats ne se mettent pas a jour** : Le cache React Query (`queryKey: ["profile-stats", user.id]`) n'est jamais invalide apres une nouvelle commande. Quand l'utilisateur revient sur l'onglet Profil, il voit les anciennes valeurs.
 
-Actuellement, un consommateur ne peut voir une offre que si elle est active ET que le restaurant est approuve. Or, une offre reservee dans le passe peut avoir ete desactivee depuis, ce qui rend la jointure impossible.
+2. **L'annulation de reservation est encore possible** : Le bouton "Annuler la reservation" apparait sur les commandes confirmees, dans `OrdersPage.tsx` et `ReservationConfirmation.tsx`.
 
 ## Solution
 
-### 1. Ajouter une politique de securite en base de donnees
+### 1. Invalider le cache des stats apres une commande
 
-Creer une nouvelle politique RLS sur la table `offers` qui permet aux utilisateurs de voir les offres liees a leurs propres reservations, meme si ces offres sont desactivees :
+Dans `CheckoutReturnPage.tsx`, apres la creation reussie d'une reservation, appeler `queryClient.invalidateQueries({ queryKey: ["profile-stats"] })` pour forcer le rechargement des stats au prochain affichage du profil.
 
-```sql
-CREATE POLICY "Users can view offers from own reservations"
-  ON public.offers
-  FOR SELECT
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM reservations
-      WHERE reservations.offer_id = offers.id
-      AND reservations.user_id = auth.uid()
-    )
-  );
-```
+### 2. Retirer la possibilite d'annuler une reservation
 
-### 2. Aucune modification de code necessaire
+- **`OrdersPage.tsx`** : Supprimer la fonction `cancelReservation` et ne plus passer `onCancel` au composant `ReservationConfirmation`
+- **`ReservationConfirmation.tsx`** : Supprimer la prop `onCancel` de l'interface et retirer le bouton "Annuler la reservation"
 
-Le code dans `ProfilePage.tsx` est correct. Une fois la politique ajoutee, la jointure `offers(discounted_price, original_price)` retournera les bonnes valeurs au lieu de `null`.
+## Fichiers modifies
 
-## Fichiers impactes
+- **`src/pages/CheckoutReturnPage.tsx`** : Ajouter `useQueryClient` et invalider le cache `profile-stats` apres creation de reservation
+- **`src/pages/OrdersPage.tsx`** : Supprimer `cancelReservation` et la prop `onCancel`
+- **`src/components/ReservationConfirmation.tsx`** : Supprimer la prop `onCancel` et le bouton d'annulation
 
-- **Migration SQL uniquement** : ajout d'une politique RLS sur la table `offers`
-- Aucun fichier TypeScript a modifier
