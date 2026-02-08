@@ -14,7 +14,6 @@ interface ReservationConfirmationProps {
   price: number;
   status: string;
   onBack: () => void;
-  onCancel?: () => void;
   reservationId?: string;
   restaurantId?: string;
 }
@@ -28,7 +27,6 @@ const ReservationConfirmation = ({
   price,
   status,
   onBack,
-  onCancel,
   reservationId,
   restaurantId,
 }: ReservationConfirmationProps) => {
@@ -120,15 +118,6 @@ const ReservationConfirmation = ({
         </div>
       </div>
 
-      {status === "confirmed" && onCancel && (
-        <Button
-          variant="outline"
-          className="mt-6 w-full border-destructive text-destructive hover:bg-destructive/10"
-          onClick={onCancel}
-        >
-          Annuler la réservation
-        </Button>
-      )}
 
       {status === "completed" && reservationId && restaurantId && !reviewLoading && (
         <div className="mt-6 rounded-2xl bg-card p-5 shadow-sm text-center">
