@@ -1,60 +1,31 @@
 
 
-# Ajout de restaurants de test avec comptes marchands individuels
+# Correction des images manquantes pour Le Fournil et Chez Nadia
 
-## Objectif
+## Probleme
 
-Creer 6 comptes utilisateurs marchands distincts (chacun avec email/mot de passe) et associer a chacun un restaurant avec des paniers. Tu pourras te connecter avec chaque compte pour configurer les paiements Stripe, modifier les parametres, et faire tes tests.
+Les URLs Unsplash utilisees pour ces deux restaurants pointent vers des photos qui n'existent plus ou sont invalides :
+- Le Fournil de Montmartre : `photo-1517433670267-08bbd4be890f`
+- Chez Nadia - Traiteur Oriental : `photo-1541518763669-27fef04b14ea`
 
-## Comptes marchands crees
+## Solution
 
-| Restaurant | Categorie | Email | Mot de passe |
-|---|---|---|---|
-| Le Fournil de Montmartre | Boulangerie | fournil.test@yopmail.com | Test1234! |
-| Sakura Sushi | Sushi | sakura.test@yopmail.com | Test1234! |
-| L'Epicerie Verte | Epicerie | epicerie.test@yopmail.com | Test1234! |
-| Cafe des Arts | Cafe | cafearts.test@yopmail.com | Test1234! |
-| Le Bistrot du Marche | Bistrot | bistrot.test@yopmail.com | Test1234! |
-| Chez Nadia - Traiteur Oriental | Traiteur | nadia.test@yopmail.com | Test1234! |
+Mettre a jour les URLs dans la base de donnees avec des photos Unsplash valides et verifiees.
 
-## Ce qui sera cree pour chaque restaurant
+## Details techniques
 
-- Un compte utilisateur avec le role "merchant" dans le profil
-- Un restaurant avec statut "approved", adresse parisienne, photo Unsplash
-- 2 offres/paniers avec photos, prix, creneaux de retrait et stock
-- Une configuration de panier surprise (surprise_bag_config)
+Une migration SQL mettra a jour la colonne `image_url` de la table `restaurants` pour ces deux restaurants :
 
-## Implementation technique
+- **Le Fournil de Montmartre** : photo d'une boulangerie/vitrine de pains (`photo-1504753793650-d4a2b783c15e`)
+- **Chez Nadia - Traiteur Oriental** : photo d'un restaurant/cuisine orientale (`photo-1466978913421-dad2ebd01d17`)
 
-### Etape 1 : Creer les 6 comptes utilisateurs
+```sql
+UPDATE restaurants SET image_url = 'https://images.unsplash.com/photo-1504753793650-d4a2b783c15e?w=800'
+WHERE name = 'Le Fournil de Montmartre';
 
-Utiliser une edge function temporaire qui cree les utilisateurs via le Supabase Admin API (service role). Chaque utilisateur recevra :
-- Un profil avec `role = 'merchant'`
-- Un email et mot de passe fixes
+UPDATE restaurants SET image_url = 'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?w=800'
+WHERE name = 'Chez Nadia - Traiteur Oriental';
+```
 
-### Etape 2 : Migration SQL pour les donnees
-
-Une fois les user IDs recuperes, inserer via migration SQL :
-- 6 restaurants (un par owner_id) avec photos Unsplash et statut "approved"
-- 12 offres (2 par restaurant) avec des photos variees, prix reduits realistes, et stock
-- 6 configurations surprise_bag_config
-
-### Etape 3 : Nettoyage
-
-Supprimer la edge function temporaire apres l'insertion.
-
-### Photos utilisees (Unsplash, libres de droits)
-
-- Boulangerie : pain, croissants, viennoiseries
-- Sushi : plateaux sushi, bento
-- Epicerie : fruits/legumes, produits bio
-- Cafe : patisseries, brunch
-- Bistrot : plats du marche, cuisine francaise
-- Traiteur oriental : mezze, plats orientaux
-
-### Fichiers crees/modifies
-
-- `supabase/functions/seed-test-merchants/index.ts` (temporaire) : cree les 6 comptes
-- Migration SQL : insere restaurants, offres, configs
-- Suppression de la edge function apres usage
+Aucun fichier de code ne sera modifie, seule la base de donnees sera mise a jour.
 
