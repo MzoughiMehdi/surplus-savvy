@@ -28,7 +28,7 @@ const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
         .from("reservations")
         .select("id, offer_id, offers(discounted_price, original_price)")
         .eq("user_id", user!.id)
-        .eq("status", "completed");
+        .in("status", ["confirmed", "completed"]);
 
       const mealsSaved = reservations?.length ?? 0;
       const eurosSaved = reservations?.reduce((sum, r) => {
@@ -87,16 +87,10 @@ const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
               </button>
             )}
             {profile?.role === "merchant" && (
-              <>
-                <button onClick={() => navigate("/dashboard")}
-                  className="w-full rounded-xl bg-accent py-3.5 text-center text-sm font-bold text-accent-foreground shadow-md transition-transform active:scale-[0.98]">
-                  <span className="flex items-center justify-center gap-2"><Store className="h-4 w-4" /> Tableau de bord restaurant</span>
-                </button>
-                <button onClick={() => navigate("/dashboard")}
-                  className="w-full rounded-xl bg-accent py-3.5 text-center text-sm font-bold text-accent-foreground shadow-md transition-transform active:scale-[0.98]">
-                  <span className="flex items-center justify-center gap-2"><Store className="h-4 w-4" /> Tableau de bord restaurant</span>
-                </button>
-              </>
+              <button onClick={() => navigate("/dashboard")}
+                className="w-full rounded-xl bg-accent py-3.5 text-center text-sm font-bold text-accent-foreground shadow-md transition-transform active:scale-[0.98]">
+                <span className="flex items-center justify-center gap-2"><Store className="h-4 w-4" /> Tableau de bord restaurant</span>
+              </button>
             )}
           </>
         ) : (
