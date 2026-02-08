@@ -1,29 +1,43 @@
 
 
-# Creation d'un nouveau compte administrateur
+# Ajout d'une page de detail restaurant dans l'admin
+
+## Probleme actuel
+
+La page `/admin/restaurants` affiche une liste avec nom, adresse, categorie, plan et statut, mais il n'est pas possible de :
+- Voir les informations completes d'un restaurant (telephone, description, horaires, image, proprietaire)
+- Contacter le proprietaire (email)
+- Parcourir les details d'un restaurant specifique
 
 ## Ce qui sera fait
 
-1. **Ajouter une fonctionnalite "Mot de passe oublie"** sur la page de connexion (`/auth`) pour permettre la reinitialisation du mot de passe via email -- utile pour tous les utilisateurs, pas seulement l'admin.
+### 1. Nouvelle page "Detail Restaurant" (`/admin/restaurants/:id`)
 
-2. **Creer un nouveau compte admin** via une migration SQL :
-   - Inserer une nouvelle entree dans la table `user_roles` avec le role `admin` apres que vous aurez cree le compte depuis la page `/auth`.
+Une page dediee affichant toutes les informations d'un restaurant :
 
-## Etapes
+- **Informations generales** : nom, adresse, categorie, description, image
+- **Contact** : telephone du restaurant + email du proprietaire (recupere depuis `profiles`)
+- **Abonnement** : plan, date de debut, fin de la periode d'essai
+- **Statut** : avec boutons d'action (approuver/rejeter/suspendre)
+- **Statistiques** : nombre d'offres, nombre de reservations, note moyenne
+- **Bouton "Contacter"** : lien `mailto:` vers l'email du proprietaire pour envoyer un email directement
 
-1. Vous creez un compte depuis la page `/auth` > "S'inscrire" avec l'email et le mot de passe de votre choix (par exemple `admin@savebite.com`).
-2. Une fois le compte cree et confirme, je lancerai une migration SQL pour attribuer le role `admin` a ce nouveau compte dans la table `user_roles`.
-3. Vous pourrez ensuite vous connecter et acceder au back-office `/admin`.
+### 2. Modification de la liste des restaurants
 
-## Marche a suivre immediate
+- Chaque ligne du tableau deviendra cliquable pour naviguer vers la page de detail
+- Ajout d'un bouton "Voir" sur chaque restaurant
 
-Avant de pouvoir creer le compte en base, j'ai besoin de savoir :
-- **Quel email** souhaitez-vous utiliser pour ce compte admin ?
+### 3. Mise a jour du routage
 
-Une fois que vous aurez cree le compte via la page d'inscription et que vous me donnerez l'email, j'ajouterai le role admin a ce compte.
+- Ajout de la route `/admin/restaurants/:id` dans `App.tsx`
 
 ## Details techniques
 
-- Migration SQL : `INSERT INTO public.user_roles (user_id, role) VALUES ('<user_id>', 'admin');` -- le `user_id` sera recupere depuis la table `profiles` en filtrant par email.
-- Optionnel : ajout d'un lien "Mot de passe oublie" sur la page `/auth` utilisant `supabase.auth.resetPasswordForEmail()`.
+- Nouvelle page : `src/pages/admin/AdminRestaurantDetail.tsx`
+- Requete Supabase joignant `restaurants` avec `profiles` (via `owner_id`) pour recuperer l'email et le nom du proprietaire
+- Requete RPC `get_restaurant_rating` pour la note moyenne
+- Comptage des offres et reservations liees au restaurant
+- Navigation avec `react-router-dom` (`useParams`, `useNavigate`)
+- Bouton retour vers la liste
+- Design coherent avec le reste du back-office (memes composants Card, Badge, Button)
 
