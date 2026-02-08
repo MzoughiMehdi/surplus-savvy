@@ -1,0 +1,1 @@
+ALTER TABLE surprise_bag_config ADD COLUMN image_url text;

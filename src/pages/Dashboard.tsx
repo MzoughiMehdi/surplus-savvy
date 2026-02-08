@@ -163,6 +163,7 @@ const Dashboard = () => {
       category: "meals",
       date: today,
       is_active: true,
+      image_url: config.image_url ?? null,
     });
   };
 
@@ -298,7 +299,7 @@ const Dashboard = () => {
 
       {/* Surprise Bag Config */}
       <div className="mt-6">
-        <SurpriseBagConfig config={config} onUpdate={upsertConfig} />
+        <SurpriseBagConfig config={config} onUpdate={upsertConfig} userId={user!.id} />
       </div>
 
       {/* Calendar */}

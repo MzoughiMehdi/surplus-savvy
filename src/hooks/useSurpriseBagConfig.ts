@@ -9,6 +9,7 @@ export interface SurpriseBagConfig {
   pickup_start: string;
   pickup_end: string;
   is_active: boolean;
+  image_url: string | null;
 }
 
 export const useSurpriseBagConfig = (restaurantId: string | undefined) => {
