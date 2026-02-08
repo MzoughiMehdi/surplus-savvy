@@ -43,11 +43,14 @@ export const useSurpriseBagConfig = (restaurantId: string | undefined) => {
       offerUpdates.items_left = updatedConfig.daily_quantity;
     }
     if (Object.keys(offerUpdates).length > 0) {
-      await supabase
+      const { error } = await supabase
         .from("offers")
         .update(offerUpdates)
         .eq("restaurant_id", restaurantId)
         .eq("date", today);
+      if (error) {
+        console.error("Erreur sync offre du jour:", error);
+      }
     }
   };
 
