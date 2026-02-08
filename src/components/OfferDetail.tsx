@@ -4,6 +4,7 @@ import { ArrowLeft, Clock, MapPin, Star, ShoppingBag, Loader2, Sparkles, Package
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { Offer } from "@/hooks/useOffers";
+import StarRating from "@/components/StarRating";
 
 interface OfferDetailProps {
   offer: Offer;
@@ -84,26 +85,26 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
 
         {/* Détail des notes par critère */}
         {(dynamicRating?.count ?? 0) > 0 && (dynamicRating?.avgQuality != null || dynamicRating?.avgQuantity != null || dynamicRating?.avgPresentation != null) && (
-          <div className="mt-4 flex gap-3">
+          <div className="mt-4 flex flex-wrap gap-3">
             {dynamicRating?.avgQuality != null && (
               <div className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5">
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
                 <span className="text-xs text-muted-foreground">Qualité</span>
-                <span className="text-xs font-semibold text-foreground">{dynamicRating.avgQuality}</span>
+                <StarRating value={Math.round(dynamicRating.avgQuality)} readonly size="sm" />
               </div>
             )}
             {dynamicRating?.avgQuantity != null && (
               <div className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5">
                 <Package className="h-3.5 w-3.5 text-primary" />
                 <span className="text-xs text-muted-foreground">Quantité</span>
-                <span className="text-xs font-semibold text-foreground">{dynamicRating.avgQuantity}</span>
+                <StarRating value={Math.round(dynamicRating.avgQuantity)} readonly size="sm" />
               </div>
             )}
             {dynamicRating?.avgPresentation != null && (
               <div className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5">
                 <Palette className="h-3.5 w-3.5 text-primary" />
                 <span className="text-xs text-muted-foreground">Présentation</span>
-                <span className="text-xs font-semibold text-foreground">{dynamicRating.avgPresentation}</span>
+                <StarRating value={Math.round(dynamicRating.avgPresentation)} readonly size="sm" />
               </div>
             )}
           </div>
