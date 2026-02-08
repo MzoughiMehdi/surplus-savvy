@@ -1,15 +1,17 @@
 import { useState, useEffect } from "react";
-import { Package, Clock, Euro, Hash, Power } from "lucide-react";
+import { Package, Clock, Euro, Hash, ImagePlus } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import type { SurpriseBagConfig as ConfigType } from "@/hooks/useSurpriseBagConfig";
+import OfferImageUpload from "@/components/OfferImageUpload";
 
 interface Props {
   config: ConfigType | null;
   onUpdate: (updates: Partial<Omit<ConfigType, "id" | "restaurant_id">>) => Promise<void>;
+  userId: string;
 }
 
-const SurpriseBagConfig = ({ config, onUpdate }: Props) => {
+const SurpriseBagConfig = ({ config, onUpdate, userId }: Props) => {
   const [basePrice, setBasePrice] = useState(config?.base_price ?? 15);
   const [quantity, setQuantity] = useState(config?.daily_quantity ?? 5);
   const [pickupStart, setPickupStart] = useState(config?.pickup_start?.slice(0, 5) ?? "18:00");
@@ -128,6 +130,17 @@ const SurpriseBagConfig = ({ config, onUpdate }: Props) => {
               className="rounded-xl border border-input bg-background px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
+        </div>
+        {/* Bag photo */}
+        <div>
+          <label className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1">
+            <ImagePlus className="h-3 w-3" /> Photo du panier
+          </label>
+          <OfferImageUpload
+            imageUrl={config?.image_url ?? null}
+            onImageChange={(url) => handleSave("image_url", url)}
+            userId={userId}
+          />
         </div>
       </div>
     </div>

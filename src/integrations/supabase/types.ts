@@ -464,6 +464,7 @@ export type Database = {
           created_at: string
           daily_quantity: number
           id: string
+          image_url: string | null
           is_active: boolean
           pickup_end: string
           pickup_start: string
@@ -475,6 +476,7 @@ export type Database = {
           created_at?: string
           daily_quantity?: number
           id?: string
+          image_url?: string | null
           is_active?: boolean
           pickup_end?: string
           pickup_start?: string
@@ -486,6 +488,7 @@ export type Database = {
           created_at?: string
           daily_quantity?: number
           id?: string
+          image_url?: string | null
           is_active?: boolean
           pickup_end?: string
           pickup_start?: string
