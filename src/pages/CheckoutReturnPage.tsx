@@ -62,6 +62,7 @@ const CheckoutReturnPage = () => {
         }
 
         queryClient.invalidateQueries({ queryKey: ["profile-stats"] });
+        queryClient.invalidateQueries({ queryKey: ["reservations"] });
         toast.success("Paiement confirmé ! Votre réservation est prête.");
         setStatus("success");
         setTimeout(() => navigate("/?tab=orders"), 1500);

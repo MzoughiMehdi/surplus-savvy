@@ -109,6 +109,27 @@ export type Database = {
           },
         ]
       }
+      platform_settings: {
+        Row: {
+          commission_rate: number
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          commission_rate?: number
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          commission_rate?: number
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -187,6 +208,60 @@ export type Database = {
           },
         ]
       }
+      restaurant_payouts: {
+        Row: {
+          commission_rate: number
+          created_at: string
+          id: string
+          platform_amount: number
+          reservation_id: string | null
+          restaurant_amount: number
+          restaurant_id: string
+          status: string
+          stripe_transfer_id: string | null
+          total_amount: number
+        }
+        Insert: {
+          commission_rate: number
+          created_at?: string
+          id?: string
+          platform_amount: number
+          reservation_id?: string | null
+          restaurant_amount: number
+          restaurant_id: string
+          status?: string
+          stripe_transfer_id?: string | null
+          total_amount: number
+        }
+        Update: {
+          commission_rate?: number
+          created_at?: string
+          id?: string
+          platform_amount?: number
+          reservation_id?: string | null
+          restaurant_amount?: number
+          restaurant_id?: string
+          status?: string
+          stripe_transfer_id?: string | null
+          total_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "restaurant_payouts_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_payouts_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       restaurants: {
         Row: {
           address: string
@@ -201,6 +276,7 @@ export type Database = {
           owner_id: string
           phone: string | null
           status: string
+          stripe_account_id: string | null
           subscription_plan: string | null
           subscription_start: string | null
           trial_ends_at: string | null
@@ -219,6 +295,7 @@ export type Database = {
           owner_id: string
           phone?: string | null
           status?: string
+          stripe_account_id?: string | null
           subscription_plan?: string | null
           subscription_start?: string | null
           trial_ends_at?: string | null
@@ -237,6 +314,7 @@ export type Database = {
           owner_id?: string
           phone?: string | null
           status?: string
+          stripe_account_id?: string | null
           subscription_plan?: string | null
           subscription_start?: string | null
           trial_ends_at?: string | null
