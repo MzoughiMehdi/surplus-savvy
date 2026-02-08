@@ -120,7 +120,7 @@ serve(async (req) => {
         commission_rate: commissionRate,
         platform_amount: platformAmount,
         restaurant_amount: restaurantAmount,
-        status: stripeAccountId ? "pending" : "pending",
+        status: stripeAccountId ? "paid" : "pending",
         stripe_transfer_id: null,
       });
     }

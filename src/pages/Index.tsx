@@ -80,7 +80,7 @@ const Index = () => {
       case "favorites":
         return <FavoritesPage />;
       case "profile":
-        return <ProfilePage />;
+        return <ProfilePage onNavigate={setActiveTab} />;
       default:
         return (
           <>
