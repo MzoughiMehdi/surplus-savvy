@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Clock, MapPin, Star, ShoppingBag, Loader2 } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, Star, ShoppingBag, Loader2, Sparkles, Package, Palette } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { Offer } from "@/hooks/useOffers";
@@ -8,7 +8,7 @@ import type { Offer } from "@/hooks/useOffers";
 interface OfferDetailProps {
   offer: Offer;
   onBack: () => void;
-  dynamicRating?: { avg: number; count: number };
+  dynamicRating?: { avg: number; count: number; avgQuality?: number | null; avgQuantity?: number | null; avgPresentation?: number | null };
 }
 
 const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
@@ -81,6 +81,33 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
             </div>
           </div>
         </div>
+
+        {/* Détail des notes par critère */}
+        {(dynamicRating?.count ?? 0) > 0 && (dynamicRating?.avgQuality != null || dynamicRating?.avgQuantity != null || dynamicRating?.avgPresentation != null) && (
+          <div className="mt-4 flex gap-3">
+            {dynamicRating?.avgQuality != null && (
+              <div className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs text-muted-foreground">Qualité</span>
+                <span className="text-xs font-semibold text-foreground">{dynamicRating.avgQuality}</span>
+              </div>
+            )}
+            {dynamicRating?.avgQuantity != null && (
+              <div className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5">
+                <Package className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs text-muted-foreground">Quantité</span>
+                <span className="text-xs font-semibold text-foreground">{dynamicRating.avgQuantity}</span>
+              </div>
+            )}
+            {dynamicRating?.avgPresentation != null && (
+              <div className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5">
+                <Palette className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs text-muted-foreground">Présentation</span>
+                <span className="text-xs font-semibold text-foreground">{dynamicRating.avgPresentation}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         <h1 className="mt-5 font-display text-2xl font-bold text-foreground">🎁 {offer.title}</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Un assortiment surprise des meilleurs produits du jour. Le contenu varie chaque jour !</p>
