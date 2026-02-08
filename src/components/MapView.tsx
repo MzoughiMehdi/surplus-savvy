@@ -133,16 +133,40 @@ const MapView = ({ offers, onBack, onSelectOffer }: MapViewProps) => {
 
       const popupContent = document.createElement("div");
       popupContent.style.minWidth = "200px";
-      popupContent.innerHTML = `
-        <img src="${r.image}" alt="${r.title}" style="height:96px;width:100%;border-radius:8px;object-fit:cover;" />
-        <p style="margin-top:8px;font-size:14px;font-weight:700;">${r.restaurantName}</p>
-        <p style="font-size:11px;color:#888;">${r.restaurantAddress}</p>
-        <p style="font-size:12px;color:#666;">${r.title}</p>
-        <div style="margin-top:4px;display:flex;align-items:center;justify-content:space-between;">
-          <span style="font-size:12px;color:#999;text-decoration:line-through;">€${r.originalPrice.toFixed(2)}</span>
-          <span style="font-size:14px;font-weight:700;color:hsl(152,45%,28%);">€${r.discountedPrice.toFixed(2)}</span>
-        </div>
-      `;
+
+      const img = document.createElement("img");
+      img.src = r.image;
+      img.alt = r.title;
+      img.style.cssText = "height:96px;width:100%;border-radius:8px;object-fit:cover;";
+      popupContent.appendChild(img);
+
+      const nameP = document.createElement("p");
+      nameP.textContent = r.restaurantName;
+      nameP.style.cssText = "margin-top:8px;font-size:14px;font-weight:700;";
+      popupContent.appendChild(nameP);
+
+      const addressP = document.createElement("p");
+      addressP.textContent = r.restaurantAddress;
+      addressP.style.cssText = "font-size:11px;color:#888;";
+      popupContent.appendChild(addressP);
+
+      const titleP = document.createElement("p");
+      titleP.textContent = r.title;
+      titleP.style.cssText = "font-size:12px;color:#666;";
+      popupContent.appendChild(titleP);
+
+      const priceDiv = document.createElement("div");
+      priceDiv.style.cssText = "margin-top:4px;display:flex;align-items:center;justify-content:space-between;";
+      const oldPrice = document.createElement("span");
+      oldPrice.textContent = `€${r.originalPrice.toFixed(2)}`;
+      oldPrice.style.cssText = "font-size:12px;color:#999;text-decoration:line-through;";
+      const newPrice = document.createElement("span");
+      newPrice.textContent = `€${r.discountedPrice.toFixed(2)}`;
+      newPrice.style.cssText = "font-size:14px;font-weight:700;color:hsl(152,45%,28%);";
+      priceDiv.appendChild(oldPrice);
+      priceDiv.appendChild(newPrice);
+      popupContent.appendChild(priceDiv);
+
       const btn = document.createElement("button");
       btn.textContent = "Voir l'offre";
       btn.style.cssText = "margin-top:8px;width:100%;padding:8px;border-radius:8px;background:hsl(152,45%,28%);color:white;font-size:12px;font-weight:700;border:none;cursor:pointer;";
