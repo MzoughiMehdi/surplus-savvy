@@ -1,41 +1,36 @@
 
 
-# Correction des prix : appliquer -60% sur toutes les offres
+# Ajouter la gestion des photos (restaurant + panier) sur le compte commercant
 
-## Probleme
+## Ce qui existe deja
+- **Photo du restaurant** : Le composant `RestaurantImageUpload` est deja integre dans le Dashboard et fonctionne (upload vers le bucket `restaurant-images`, mise a jour de `restaurants.image_url`).
+- **Photo d'offre** : Le composant `OfferImageUpload` existe mais n'est utilise nulle part dans le Dashboard.
 
-Le modele economique impose que le prix reduit soit toujours egal a 40% du prix original (reduction de 60%). Actuellement, certaines offres ont des reductions de 50%, 58%, 63%, 64%, ou meme 75%.
+## Ce qui manque
+Le commercant ne peut pas definir une photo par defaut pour ses paniers surprise. Quand un panier est auto-genere chaque jour, il est cree sans `image_url`.
 
-## Solution
+## Plan d'implementation
 
-Executer une migration SQL qui recalcule le `discounted_price` de toutes les offres existantes avec la formule :
-
-```
-discounted_price = ROUND(original_price * 0.4, 2)
-```
-
-Cela garantira que toutes les offres affichent exactement -60%.
-
-## Exemples de corrections
-
-| Offre | Prix original | Avant | Apres (40%) |
-|---|---|---|---|
-| Panier Surprise du Chef | 25.00 | 8.99 (-64%) | 10.00 (-60%) |
-| Jdjd | 20.00 | 10.00 (-50%) | 8.00 (-60%) |
-| Mechoui de boti | 1000.00 | 250.00 (-75%) | 400.00 (-60%) |
-| Panier Viennoiseries | 12.00 | 4.99 (-58%) | 4.80 (-60%) |
-| Panier Pains Artisanaux | 14.00 | 5.49 (-61%) | 5.60 (-60%) |
-
-## Details techniques
-
-Une seule commande SQL sur la table `offers` :
-
+### 1. Ajouter une colonne `image_url` a la table `surprise_bag_config`
+Migration SQL :
 ```sql
-UPDATE offers
-SET discounted_price = ROUND(original_price * 0.4, 2);
+ALTER TABLE surprise_bag_config ADD COLUMN image_url text;
 ```
+Cela permet au commercant de definir une photo par defaut pour tous ses paniers surprise.
 
-Aucun fichier de code ne sera modifie. Seule la base de donnees sera mise a jour.
+### 2. Mettre a jour le composant `SurpriseBagConfig`
+- Importer `OfferImageUpload`
+- Ajouter un champ photo dans la section de configuration du panier surprise
+- Quand la photo change, appeler `onUpdate({ image_url: url })` pour sauvegarder dans `surprise_bag_config`
 
-Le hook `useSurpriseBagConfig` applique deja correctement la formule `base_price * 0.4` lors de la creation/mise a jour d'offres, donc les futures offres seront correctes automatiquement.
+### 3. Mettre a jour la generation automatique des offres dans `Dashboard.tsx`
+Dans la fonction `generateTodayOffer`, inclure `image_url: config.image_url` lors de l'insertion de l'offre du jour, pour que chaque panier genere herite de la photo configuree.
+
+### 4. Mettre a jour le hook `useSurpriseBagConfig`
+S'assurer que le type `SurpriseBagConfig` inclut le champ `image_url` pour la coherence TypeScript.
+
+## Resultat
+Le commercant pourra depuis son Dashboard :
+- Changer la **photo du restaurant** (deja en place)
+- Changer la **photo du panier surprise** (nouveau) — cette photo sera automatiquement utilisee pour chaque offre generee quotidiennement
 
