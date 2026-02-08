@@ -1,43 +1,38 @@
 
 
-# Correction de la visibilite des offres multiples
+# Correction des "Euros economises" sur la page Profil
 
 ## Probleme identifie
 
-Apres verification en base de donnees, le systeme supporte bien plusieurs offres par restaurant. Le probleme vient de deux choses :
+La requete pour calculer les statistiques retourne bien les reservations completees, mais le champ `offers` est `null` car les politiques de securite de la base de donnees bloquent l'acces aux offres.
 
-1. **L'offre "boti roti" est desactivee** (`is_active = false`) -- elle n'apparait donc pas cote consommateur. Sur le dashboard marchand, le bouton pour activer/desactiver n'est pas assez clair (c'est une icone crayon).
+Actuellement, un consommateur ne peut voir une offre que si elle est active ET que le restaurant est approuve. Or, une offre reservee dans le passe peut avoir ete desactivee depuis, ce qui rend la jointure impossible.
 
-2. **Les offres avec stock a zero** (`items_left = 0`) restent visibles mais ne peuvent pas etre reservees, ce qui est confus.
+## Solution
 
-## Ce qui sera fait
+### 1. Ajouter une politique de securite en base de donnees
 
-### 1. Ameliorer le dashboard marchand pour mieux gerer les offres
+Creer une nouvelle politique RLS sur la table `offers` qui permet aux utilisateurs de voir les offres liees a leurs propres reservations, meme si ces offres sont desactivees :
 
-- Remplacer l'icone crayon par un **bouton toggle explicite** "Activer" / "Desactiver" avec couleurs distinctes (vert/gris)
-- Ajouter un **badge de statut** ("Active", "Inactive", "Rupture") sur chaque carte d'offre
-- Ajouter un **compteur** en haut : "X active(s) sur Y offre(s)"
+```sql
+CREATE POLICY "Users can view offers from own reservations"
+  ON public.offers
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM reservations
+      WHERE reservations.offer_id = offers.id
+      AND reservations.user_id = auth.uid()
+    )
+  );
+```
 
-### 2. Filtrer les offres en rupture de stock cote consommateur
+### 2. Aucune modification de code necessaire
 
-- Dans `useOffers.ts`, ajouter un filtre `items_left > 0` pour ne pas afficher les offres sans stock disponible
-- Cela evitera d'afficher des offres que personne ne peut reserver
+Le code dans `ProfilePage.tsx` est correct. Une fois la politique ajoutee, la jointure `offers(discounted_price, original_price)` retournera les bonnes valeurs au lieu de `null`.
 
-### 3. Desactiver automatiquement les offres a zero stock (optionnel mais recommande)
+## Fichiers impactes
 
-- Quand `items_left` atteint 0 apres une reservation, l'offre reste active mais n'est plus visible grace au filtre ci-dessus
-
-## Details techniques
-
-### Fichiers modifies
-
-- **`src/pages/Dashboard.tsx`** :
-  - Ajout d'un badge `Active` / `Inactive` / `Rupture` sur chaque offre
-  - Remplacement de l'icone `Edit2` par un bouton texte "Activer" / "Desactiver"
-  - Ajout d'un compteur d'offres actives en en-tete de section
-
-- **`src/hooks/useOffers.ts`** :
-  - Ajout du filtre `.gt("items_left", 0)` dans la requete Supabase pour exclure les offres en rupture de stock cote consommateur
-
-Aucune modification de base de donnees necessaire.
-
+- **Migration SQL uniquement** : ajout d'une politique RLS sur la table `offers`
+- Aucun fichier TypeScript a modifier
