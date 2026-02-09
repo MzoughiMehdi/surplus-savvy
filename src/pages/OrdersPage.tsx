@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Clock, QrCode, Package } from "lucide-react";
+import { useFavorites } from "@/hooks/useFavorites";
+import { Clock, QrCode, Package, Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import ReservationConfirmation from "@/components/ReservationConfirmation";
 import { useState } from "react";
@@ -28,6 +29,7 @@ interface Reservation {
 
 const OrdersPage = () => {
   const { user } = useAuth();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [selected, setSelected] = useState<Reservation | null>(null);
 
   const { data: reservations = [], isLoading } = useQuery({
@@ -100,7 +102,15 @@ const OrdersPage = () => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-foreground">{r.offers?.title ?? "Offre"}</p>
-                  <p className="text-xs text-muted-foreground">{r.restaurants?.name ?? "Restaurant"}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs text-muted-foreground">{r.restaurants?.name ?? "Restaurant"}</p>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleFavorite(r.restaurant_id); }}
+                      aria-label={isFavorite(r.restaurant_id) ? "Retirer des favoris" : "Ajouter aux favoris"}
+                    >
+                      <Heart className={`h-3.5 w-3.5 transition-colors ${isFavorite(r.restaurant_id) ? "fill-destructive text-destructive" : "text-muted-foreground"}`} />
+                    </button>
+                  </div>
                   <p className="mt-0.5 text-[10px] text-muted-foreground">
                     {formatDistanceToNow(new Date(r.created_at), { addSuffix: true, locale: fr })}
                   </p>
