@@ -76,6 +76,14 @@ const WelcomePage = () => {
             Continuer en tant qu'invité
             <ArrowRight className="h-4 w-4" />
           </button>
+
+          <button
+            onClick={() => navigate("/auth?mode=merchant-signup")}
+            className="flex w-full items-center justify-center gap-1 py-2 text-xs text-white/50 transition-colors hover:text-white/80"
+          >
+            Vous êtes commerçant ?{" "}
+            <span className="font-semibold text-[hsl(var(--accent))]">Devenir partenaire</span>
+          </button>
         </div>
       </div>
     </div>
