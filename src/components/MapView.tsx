@@ -10,63 +10,14 @@ interface MapViewProps {
   onSelectOffer: (offer: Offer) => void;
 }
 
-interface GeocodedOffer extends Offer {
-  lat: number;
-  lng: number;
-}
-
-const geocodeCache = new Map<string, { lat: number; lng: number } | null>();
-
-const geocodeAddress = async (address: string, retry = true): Promise<{ lat: number; lng: number } | null> => {
-  if (!address) return null;
-  if (geocodeCache.has(address)) return geocodeCache.get(address)!;
-
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
-      { headers: { "Accept-Language": "fr" } }
-    );
-    const data = await res.json();
-    if (data.length > 0) {
-      const coords = { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-      geocodeCache.set(address, coords);
-      return coords;
-    }
-    // Fallback: append ", France" if not already present
-    if (retry && !address.toLowerCase().includes("france")) {
-      console.warn("Geocoding failed for:", address, "— retrying with ', France'");
-      return geocodeAddress(address + ", France", false);
-    }
-  } catch (e) {
-    console.error("Geocoding error for", address, e);
-  }
-  geocodeCache.set(address, null);
-  return null;
-};
-
 const MapView = ({ offers, onBack, onSelectOffer }: MapViewProps) => {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [locating, setLocating] = useState(false);
-  const [geocodedOffers, setGeocodedOffers] = useState<GeocodedOffer[]>([]);
   const defaultCenter: [number, number] = [48.8566, 2.3522];
 
-  // Geocode all offers in parallel with progressive updates
-  useEffect(() => {
-    let cancelled = false;
-    const geocodeAll = async () => {
-      const promises = offers.map(async (offer) => {
-        const coords = await geocodeAddress(offer.restaurantAddress);
-        if (coords && !cancelled) {
-          setGeocodedOffers((prev) => [...prev, { ...offer, lat: coords.lat, lng: coords.lng }]);
-        }
-      });
-      await Promise.all(promises);
-    };
-    setGeocodedOffers([]);
-    geocodeAll();
-    return () => { cancelled = true; };
-  }, [offers]);
+  // Filter offers that have coordinates
+  const geoOffers = offers.filter((o) => o.latitude != null && o.longitude != null);
 
   const flyToUser = () => {
     setLocating(true);
@@ -99,7 +50,7 @@ const MapView = ({ offers, onBack, onSelectOffer }: MapViewProps) => {
     }
   };
 
-  // Init map once, add markers when geocoded offers change
+  // Init map and add markers
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -118,12 +69,12 @@ const MapView = ({ offers, onBack, onSelectOffer }: MapViewProps) => {
 
     const map = mapRef.current;
 
-    // Clear existing markers (except user location)
+    // Clear existing markers
     map.eachLayer((layer) => {
       if (layer instanceof L.Marker) map.removeLayer(layer);
     });
 
-    geocodedOffers.forEach((r) => {
+    geoOffers.forEach((r) => {
       const icon = L.divIcon({
         html: `<div style="width:36px;height:36px;border-radius:50%;background:hsl(16,65%,55%);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:18px;">🍽️</div>`,
         className: "",
@@ -173,17 +124,16 @@ const MapView = ({ offers, onBack, onSelectOffer }: MapViewProps) => {
       btn.addEventListener("click", () => onSelectOffer(r));
       popupContent.appendChild(btn);
 
-      L.marker([r.lat, r.lng], { icon })
+      L.marker([r.latitude!, r.longitude!], { icon })
         .addTo(map)
         .bindPopup(popupContent);
     });
 
-    // Fit bounds if we have markers
-    if (geocodedOffers.length > 0) {
-      const bounds = L.latLngBounds(geocodedOffers.map((o) => [o.lat, o.lng]));
+    if (geoOffers.length > 0) {
+      const bounds = L.latLngBounds(geoOffers.map((o) => [o.latitude!, o.longitude!]));
       map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
     }
-  }, [geocodedOffers]);
+  }, [geoOffers.length]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -216,7 +166,7 @@ const MapView = ({ offers, onBack, onSelectOffer }: MapViewProps) => {
 
       <div className="absolute bottom-16 left-4 right-4 z-[1000] rounded-2xl bg-background/95 p-4 shadow-lg backdrop-blur-sm">
         <p className="text-sm font-semibold text-foreground">
-          🍽️ {geocodedOffers.length} offres à proximité
+          🍽️ {geoOffers.length} offres à proximité
         </p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           Appuyez sur un marqueur pour voir l'offre
