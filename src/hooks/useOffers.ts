@@ -20,12 +20,23 @@ export interface Offer {
   longitude: number | null;
 }
 
+const isPickupExpired = (pickupEnd: string) => {
+  const now = new Date();
+  const [h, m] = pickupEnd.split(":").map(Number);
+  const end = new Date();
+  end.setHours(h, m, 0, 0);
+  return now > end;
+};
+
 export const useOffers = () => {
+  const [allOffers, setAllOffers] = useState<Offer[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const filterExpired = (list: Offer[]) =>
+    list.filter((o) => !isPickupExpired(o.pickupEnd));
+
   const fetchOffers = async () => {
-    // Auto-generate today's offers (idempotent, no duplicates)
     await supabase.rpc('generate_daily_offers');
     const today = new Date().toISOString().split("T")[0];
 
@@ -62,9 +73,22 @@ export const useOffers = () => {
       longitude: o.restaurants?.longitude ?? null,
     }));
 
-    setOffers(mapped);
+    setAllOffers(mapped);
+    setOffers(filterExpired(mapped));
     setLoading(false);
   };
+
+  // Re-filter every 60s to hide newly expired offers
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setOffers((prev) => {
+        const filtered = filterExpired(allOffers);
+        if (filtered.length !== prev.length) return filtered;
+        return prev;
+      });
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, [allOffers]);
 
   useEffect(() => {
     fetchOffers();
