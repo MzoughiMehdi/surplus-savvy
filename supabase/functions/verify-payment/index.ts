@@ -55,14 +55,10 @@ serve(async (req) => {
     );
 
     // Deduplicate by checking if a reservation with this stripe session already exists
-    // We store payment_intent in pickup_code prefix for dedup check
     const { data: existing } = await supabaseAdmin
       .from("reservations")
       .select("id, pickup_code")
-      .eq("user_id", userId)
-      .eq("offer_id", offerId)
-      .eq("status", "confirmed")
-      .gte("created_at", new Date(Date.now() - 300000).toISOString())
+      .eq("stripe_session_id", sessionId)
       .limit(1);
 
     if (existing && existing.length > 0) {
@@ -87,6 +83,7 @@ serve(async (req) => {
         user_id: userId,
         offer_id: offerId,
         restaurant_id: restaurantId || "",
+        stripe_session_id: sessionId,
       })
       .select("id, pickup_code")
       .single();
