@@ -176,20 +176,7 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
 
         {/* === NEW SECTIONS === */}
 
-        {/* 1. Allergen warning */}
-        <div className="mt-4 rounded-xl border border-warning/30 bg-warning/10 p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
-            <div>
-              <p className="text-sm font-medium text-foreground">Information allergènes</p>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Le contenu de ce lot varie chaque jour. Le restaurant ne peut garantir l'absence d'allergènes. En cas d'allergie ou d'intolérance, contactez directement le commerçant avant de réserver.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* 2. Mini map */}
+        {/* 1. Mini map */}
         <div className="mt-4 rounded-xl bg-secondary p-4">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground mb-3">
             <MapPin className="h-4 w-4 text-primary" />
@@ -198,15 +185,18 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
           {coords ? (
             <div ref={mapRef} className="h-40 w-full rounded-lg overflow-hidden" />
           ) : geoFailed ? (
-            <p className="text-xs text-muted-foreground">{offer.restaurantAddress || "Adresse non disponible"}</p>
+           <p className="text-xs text-muted-foreground">{offer.restaurantAddress || "Adresse non disponible"}</p>
           ) : (
             <div className="flex h-40 items-center justify-center">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           )}
+          {offer.restaurantAddress && (
+            <p className="mt-2 text-xs text-muted-foreground">{offer.restaurantAddress}</p>
+          )}
         </div>
 
-        {/* 3. Collection instructions */}
+        {/* 2. Collection instructions */}
         <div className="mt-4 rounded-xl bg-secondary p-4">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
             <ClipboardList className="h-4 w-4 text-primary" />
@@ -226,6 +216,14 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
               Le contenu du lot peut varier selon les invendus du jour
             </li>
           </ul>
+        </div>
+
+        {/* 3. Allergen warning (compact) */}
+        <div className="mt-3 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Le contenu de ce lot varie chaque jour. Le restaurant ne peut garantir l'absence d'allergènes. En cas d'allergie, contactez directement le commerçant.
+          </p>
         </div>
 
         {/* 4. Packaging reminder */}
