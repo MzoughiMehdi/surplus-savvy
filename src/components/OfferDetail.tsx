@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Clock, MapPin, Star, ShoppingBag, Loader2, Sparkles, Package, Palette } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, Star, ShoppingBag, Loader2, Sparkles, Package, Palette, AlertTriangle, ClipboardList, Leaf } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { Offer } from "@/hooks/useOffers";
 import StarRating from "@/components/StarRating";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
 interface OfferDetailProps {
   offer: Offer;
@@ -16,31 +18,70 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [reserving, setReserving] = useState(false);
+  const [coords, setCoords] = useState<[number, number] | null>(null);
+  const [geoFailed, setGeoFailed] = useState(false);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
 
   const discount = Math.round((1 - offer.discountedPrice / offer.originalPrice) * 100);
 
-  const handleReserve = () => {
-    if (!user) {
-      toast.error("Connectez-vous pour réserver");
-      return;
-    }
-    if (offer.itemsLeft <= 0) {
-      toast.error("Cette offre n'est plus disponible");
-      return;
-    }
+  // Geocode restaurant address
+  useEffect(() => {
+    if (!offer.restaurantAddress) { setGeoFailed(true); return; }
+    const controller = new AbortController();
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(offer.restaurantAddress)}&format=json&limit=1`, {
+      headers: { "Accept-Language": "fr" },
+      signal: controller.signal,
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.length > 0) setCoords([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
+        else setGeoFailed(true);
+      })
+      .catch(() => setGeoFailed(true));
+    return () => controller.abort();
+  }, [offer.restaurantAddress]);
 
+  // Render Leaflet map
+  useEffect(() => {
+    if (!coords || !mapRef.current || mapInstanceRef.current) return;
+    const map = L.map(mapRef.current, {
+      center: coords,
+      zoom: 16,
+      dragging: false,
+      scrollWheelZoom: false,
+      zoomControl: false,
+      doubleClickZoom: false,
+      attributionControl: false,
+    });
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+    L.marker(coords, {
+      icon: L.divIcon({
+        className: "",
+        html: `<div style="background:#16a34a;width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3)"></div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      }),
+    }).addTo(map);
+    mapInstanceRef.current = map;
+    return () => { map.remove(); mapInstanceRef.current = null; };
+  }, [coords]);
+
+  const handleReserve = () => {
+    if (!user) { toast.error("Connectez-vous pour réserver"); return; }
+    if (offer.itemsLeft <= 0) { toast.error("Cette offre n'est plus disponible"); return; }
     const params = new URLSearchParams({
       offerId: offer.id,
       offerTitle: offer.title,
       amount: offer.discountedPrice.toString(),
       restaurantId: offer.restaurantId || "",
     });
-
     navigate(`/checkout?${params.toString()}`);
   };
 
   return (
     <div className="animate-fade-in-up min-h-screen bg-background pb-28">
+      {/* Hero image */}
       <div className="relative">
         <img src={offer.image} alt={offer.title} className="h-64 w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
@@ -56,12 +97,9 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
       </div>
 
       <div className="px-5 pt-5">
+        {/* Restaurant info */}
         <div className="flex items-center gap-3">
-          <img
-            src={offer.restaurantImage}
-            alt={offer.restaurantName}
-            className="h-12 w-12 rounded-full object-cover ring-2 ring-border"
-          />
+          <img src={offer.restaurantImage} alt={offer.restaurantName} className="h-12 w-12 rounded-full object-cover ring-2 ring-border" />
           <div>
             <h2 className="text-base font-semibold text-foreground">{offer.restaurantName}</h2>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -83,7 +121,7 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
           </div>
         </div>
 
-        {/* Détail des notes par critère */}
+        {/* Rating breakdown */}
         {(dynamicRating?.count ?? 0) > 0 && (dynamicRating?.avgQuality != null || dynamicRating?.avgQuantity != null || dynamicRating?.avgPresentation != null) && (
           <div className="mt-4 flex flex-wrap gap-3">
             {dynamicRating?.avgQuality != null && (
@@ -113,6 +151,7 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
         <h1 className="mt-5 font-display text-2xl font-bold text-foreground">🎁 {offer.title}</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Un assortiment surprise des meilleurs produits du jour. Le contenu varie chaque jour !</p>
 
+        {/* Pickup window */}
         <div className="mt-5 rounded-xl bg-eco-light p-4">
           <div className="flex items-center gap-2 text-sm font-medium text-foreground">
             <Clock className="h-4 w-4 text-primary" />
@@ -123,6 +162,7 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
           </p>
         </div>
 
+        {/* Price block */}
         <div className="mt-4 flex items-center justify-between rounded-xl bg-secondary p-4">
           <div>
             <p className="text-xs text-muted-foreground">Prix original</p>
@@ -134,14 +174,83 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
           </div>
         </div>
 
+        {/* === NEW SECTIONS === */}
+
+        {/* 1. Allergen warning */}
+        <div className="mt-4 rounded-xl border border-warning/30 bg-warning/10 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+            <div>
+              <p className="text-sm font-medium text-foreground">Information allergènes</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Le contenu de ce lot varie chaque jour. Le restaurant ne peut garantir l'absence d'allergènes. En cas d'allergie ou d'intolérance, contactez directement le commerçant avant de réserver.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Mini map */}
+        <div className="mt-4 rounded-xl bg-secondary p-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground mb-3">
+            <MapPin className="h-4 w-4 text-primary" />
+            Localisation du restaurant
+          </div>
+          {coords ? (
+            <div ref={mapRef} className="h-40 w-full rounded-lg overflow-hidden" />
+          ) : geoFailed ? (
+            <p className="text-xs text-muted-foreground">{offer.restaurantAddress || "Adresse non disponible"}</p>
+          ) : (
+            <div className="flex h-40 items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </div>
+
+        {/* 3. Collection instructions */}
+        <div className="mt-4 rounded-xl bg-secondary p-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
+            <ClipboardList className="h-4 w-4 text-primary" />
+            Instructions de collecte
+          </div>
+          <ul className="space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+            <li className="flex items-start gap-2">
+              <span className="mt-1 block h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+              Présentez votre confirmation de réservation au commerçant
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 block h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+              Respectez le créneau de retrait indiqué
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1 block h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+              Le contenu du lot peut varier selon les invendus du jour
+            </li>
+          </ul>
+        </div>
+
+        {/* 4. Packaging reminder */}
+        <div className="mt-4 rounded-xl bg-eco-light p-4">
+          <div className="flex items-start gap-3">
+            <Leaf className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <div>
+              <p className="text-sm font-medium text-foreground">Pensez à votre emballage</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Apportez votre propre sac ou contenant pour récupérer votre lot. Ensemble, réduisons les emballages !
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Stock counter */}
         <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
           <ShoppingBag className="h-4 w-4" />
           <span>
-            Plus que <strong className="text-accent">{offer.itemsLeft}</strong> paniers – dépêchez-vous !
+            Plus que <strong className="text-accent">{offer.itemsLeft}</strong> lots – dépêchez-vous !
           </span>
         </div>
       </div>
 
+      {/* Reserve button */}
       <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 px-5 py-4 backdrop-blur-sm">
         <button
           onClick={handleReserve}
