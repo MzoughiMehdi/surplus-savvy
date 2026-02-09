@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Euro, CheckCircle, Clock, Loader2, Search } from "lucide-react";
+import { Euro, CheckCircle, Clock, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,12 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  Popover, PopoverTrigger, PopoverContent,
+} from "@/components/ui/popover";
+import {
+  Command, CommandList, CommandEmpty, CommandGroup, CommandItem,
+} from "@/components/ui/command";
 import { toast } from "sonner";
 
 const AdminPayouts = () => {
@@ -19,6 +25,9 @@ const AdminPayouts = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [comboOpen, setComboOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const { data: restaurants } = useQuery({
     queryKey: ["admin-restaurants-list"],
@@ -81,17 +90,63 @@ const AdminPayouts = () => {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="space-y-1">
           <label className="text-xs font-medium text-muted-foreground">Commerçant</label>
-          <Select value={restaurantFilter} onValueChange={setRestaurantFilter}>
-            <SelectTrigger className="w-52">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous</SelectItem>
-              {restaurants?.map((r) => (
-                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover open={comboOpen} onOpenChange={setComboOpen}>
+            <PopoverTrigger asChild>
+              <div className="relative w-52">
+                <Input
+                  ref={inputRef}
+                  placeholder="Rechercher un commerçant..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (!e.target.value) {
+                      setRestaurantFilter("all");
+                    }
+                    setComboOpen(true);
+                  }}
+                  onFocus={() => setComboOpen(true)}
+                  className="pr-8"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setRestaurantFilter("all");
+                      setComboOpen(false);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </PopoverTrigger>
+            <PopoverContent className="w-52 p-0" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+              <Command>
+                <CommandList>
+                  <CommandEmpty>Aucun commerçant trouvé</CommandEmpty>
+                  <CommandGroup>
+                    {restaurants
+                      ?.filter((r) => r.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                      .map((r) => (
+                        <CommandItem
+                          key={r.id}
+                          value={r.name}
+                          onSelect={() => {
+                            setRestaurantFilter(r.id);
+                            setSearchQuery(r.name);
+                            setComboOpen(false);
+                          }}
+                        >
+                          {r.name}
+                        </CommandItem>
+                      ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
 
         <div className="space-y-1">
