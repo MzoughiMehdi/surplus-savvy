@@ -45,6 +45,7 @@ const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
   const handleAuth = () => navigate("/auth");
   const handleSignOut = async () => {
     await signOut();
+    sessionStorage.removeItem("guest_mode");
     navigate("/");
   };
 
