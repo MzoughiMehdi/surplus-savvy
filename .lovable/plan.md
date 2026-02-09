@@ -1,39 +1,56 @@
 
-# Ameliorer la vitesse de la carte et changer le style
 
-## Probleme 1 : Lenteur d'affichage des offres
+# Accelerer le chargement de la carte
 
-Le geocodage des adresses se fait **sequentiellement** (une requete Nominatim apres l'autre). Avec 7 offres, cela prend environ 7 secondes. De plus, les marqueurs ne s'affichent qu'une fois **toutes** les adresses geocodees.
+## Probleme
 
-### Solution
+Meme avec le geocodage en parallele, l'API Nominatim impose un rate-limit (~1 requete/seconde). Avec 7 restaurants, le chargement prend toujours 5-7 secondes. Ce probleme se reproduit a **chaque ouverture** de la carte.
 
-Dans `src/components/MapView.tsx` :
+## Solution : stocker les coordonnees GPS en base de donnees
 
-- **Geocoder en parallele** : remplacer la boucle `for...of` sequentielle par `Promise.all` pour lancer toutes les requetes Nominatim en meme temps (gain de ~5-6 secondes)
-- **Afficher les marqueurs progressivement** : au lieu d'attendre la fin de tous les geocodages, mettre a jour l'etat a chaque adresse resolue pour que les marqueurs apparaissent au fur et a mesure
-- La combinaison des deux reduira le temps d'attente de ~7s a ~1s
+Au lieu de geocoder les adresses a chaque visite, on stocke les coordonnees directement dans la table `restaurants`. Le geocodage ne se fait qu'une seule fois (a la creation/modification du restaurant).
 
-## Probleme 2 : Style de la carte
+### 1. Migration de base de donnees
 
-Le modele actuel est le style par defaut OpenStreetMap (couleurs vives, aspect "wiki"). Il sera remplace par un style plus moderne et epure.
+Ajouter deux colonnes `latitude` et `longitude` (type `double precision`) a la table `restaurants`.
 
-### Solution
+Puis remplir automatiquement les coordonnees des restaurants existants via une fonction edge qui appelle Nominatim une seule fois pour chaque restaurant sans coordonnees.
 
-Remplacer le tile layer dans `MapView.tsx` et `OfferDetail.tsx` :
+### 2. Modifier `src/hooks/useOffers.ts`
 
-- **Avant** : `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`
-- **Apres** : `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png` (CartoDB Voyager -- gratuit, moderne, sans cle API)
+Inclure `latitude` et `longitude` dans le `select` de la requete Supabase, et les ajouter a l'interface `Offer`.
 
-Ce style est plus propre avec des couleurs douces, une meilleure lisibilite et un aspect professionnel.
+### 3. Modifier `src/components/MapView.tsx`
 
-## Fichiers modifies
+- Supprimer tout le systeme de geocodage (fonction `geocodeAddress`, cache, `useEffect` de geocodage)
+- Utiliser directement `offer.lat` et `offer.lng` depuis les donnees de la base
+- Les marqueurs s'affichent **instantanement** a l'ouverture de la carte
 
-- **`src/components/MapView.tsx`** :
-  - Geocodage parallele avec `Promise.all`
-  - Mise a jour progressive des marqueurs
-  - Changement du tile layer vers CartoDB Voyager
-- **`src/components/OfferDetail.tsx`** :
-  - Changement du tile layer vers CartoDB Voyager (mini-carte de detail)
+### 4. Modifier `src/components/OfferDetail.tsx`
 
-## Aucune nouvelle dependance
-CartoDB Voyager est un service gratuit de tuiles qui ne necessite pas de cle API.
+- Supprimer l'appel a Nominatim pour la mini-carte
+- Utiliser directement les coordonnees de l'offre
+
+### 5. Fonction edge `geocode-restaurants`
+
+Creer une fonction backend qui :
+- Recupere tous les restaurants sans coordonnees
+- Appelle Nominatim pour chacun (avec delai de 1s entre chaque pour respecter le rate-limit)
+- Met a jour les coordonnees en base
+
+Cette fonction sera appelee une seule fois pour migrer les restaurants existants, puis les coordonnees seront renseignees lors de la creation de nouveaux restaurants.
+
+## Resultat
+
+- Ouverture de la carte : **instantanee** (0 appel API externe)
+- Les coordonnees sont calculees une seule fois par restaurant
+- Meilleure fiabilite (pas de dependance a Nominatim a chaque visite)
+
+## Fichiers concernes
+
+- **Migration SQL** : ajout colonnes `latitude` / `longitude`
+- **`supabase/functions/geocode-restaurants/index.ts`** : nouvelle fonction backend
+- **`src/hooks/useOffers.ts`** : ajout lat/lng au select et a l'interface
+- **`src/components/MapView.tsx`** : suppression geocodage, utilisation directe des coordonnees
+- **`src/components/OfferDetail.tsx`** : suppression geocodage, utilisation directe des coordonnees
+
