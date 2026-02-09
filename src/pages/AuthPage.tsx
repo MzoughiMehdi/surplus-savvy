@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import { useAuth } from "@/hooks/useAuth";
 import { ArrowLeft, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -9,12 +10,24 @@ type Mode = "login" | "signup" | "merchant-signup" | "forgot-password";
 
 const AuthPage = () => {
   const navigate = useNavigate();
+  const { user, profile, loading } = useAuth();
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const hasRedirected = useRef(false);
+
+  // Auto-redirect when OAuth session is detected
+  useEffect(() => {
+    if (!loading && user && !hasRedirected.current) {
+      hasRedirected.current = true;
+      const name = profile?.full_name || user.user_metadata?.full_name;
+      toast.success(name ? `Bienvenue ${name} !` : "Bienvenue !");
+      navigate("/", { replace: true });
+    }
+  }, [user, loading, profile, navigate]);
 
   const redirectByRole = async (userId: string, fallback: string) => {
     const { data } = await supabase
@@ -36,7 +49,7 @@ const AuthPage = () => {
       toast.error("Veuillez entrer votre email");
       return;
     }
-    setLoading(true);
+    setSubmitting(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth`,
@@ -48,7 +61,7 @@ const AuthPage = () => {
       toast.success("Un email de réinitialisation a été envoyé !");
       setMode("login");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -66,7 +79,7 @@ const AuthPage = () => {
       return;
     }
 
-    setLoading(true);
+    setSubmitting(true);
     try {
       if (mode === "login") {
         const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
@@ -106,7 +119,7 @@ const AuthPage = () => {
         setMode("login");
       }
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -217,10 +230,10 @@ const AuthPage = () => {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={submitting}
           className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-md transition-transform active:scale-[0.98] disabled:opacity-50"
         >
-          {loading ? "Chargement..." : mode === "login" ? "Se connecter" : mode === "forgot-password" ? "Envoyer le lien" : "S'inscrire"}
+          {submitting ? "Chargement..." : mode === "login" ? "Se connecter" : mode === "forgot-password" ? "Envoyer le lien" : "S'inscrire"}
         </button>
       </form>
 
