@@ -1,4 +1,5 @@
 import { User, ShoppingBag, Settings, HelpCircle, LogOut, ChevronRight, Leaf, Store } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -99,7 +100,7 @@ const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
               className="w-full rounded-xl bg-primary py-3.5 text-center text-sm font-bold text-primary-foreground shadow-md transition-transform active:scale-[0.98]">
               Se connecter / S'inscrire
             </button>
-            <button onClick={() => navigate("/merchant-onboarding")}
+            <button onClick={() => navigate("/auth?mode=merchant-signup")}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-border py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary">
               <Store className="h-4 w-4" /> Vous êtes commerçant ?
             </button>
@@ -130,6 +131,8 @@ const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
                   onClick={() => {
                     if (item.label === "Mes commandes" && onNavigate) onNavigate("orders");
                     if (item.label === "Mon impact" && onNavigate) onNavigate("orders");
+                    if (item.label === "Paramètres") toast.info("Les paramètres arrivent bientôt !");
+                    if (item.label === "Aide & Contact") toast.info("Le support arrive bientôt !");
                   }}
                   className={`flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-secondary/50 active:bg-secondary ${
                     i !== menuItems.length - 1 ? "border-b border-border" : ""

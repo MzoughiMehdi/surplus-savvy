@@ -329,6 +329,7 @@ export type Database = {
           pickup_code: string
           restaurant_id: string
           status: string
+          stripe_session_id: string | null
           updated_at: string
           user_id: string
         }
@@ -339,6 +340,7 @@ export type Database = {
           pickup_code?: string
           restaurant_id: string
           status?: string
+          stripe_session_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -349,6 +351,7 @@ export type Database = {
           pickup_code?: string
           restaurant_id?: string
           status?: string
+          stripe_session_id?: string | null
           updated_at?: string
           user_id?: string
         }
