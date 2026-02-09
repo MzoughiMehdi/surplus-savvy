@@ -33,6 +33,7 @@ export const useSurpriseBagConfig = (restaurantId: string | undefined) => {
     if (!restaurantId) return;
     const today = new Date().toISOString().split("T")[0];
     const offerUpdates: Record<string, any> = {};
+    if (updatedConfig.image_url !== undefined) offerUpdates.image_url = updatedConfig.image_url;
     if (updatedConfig.pickup_start !== undefined) offerUpdates.pickup_start = updatedConfig.pickup_start;
     if (updatedConfig.pickup_end !== undefined) offerUpdates.pickup_end = updatedConfig.pickup_end;
     if (updatedConfig.base_price !== undefined) {
