@@ -10,9 +10,11 @@ import { useUserLocation, getDistanceKm } from "@/hooks/useUserLocation";
 interface ExplorePageProps {
   offers: Offer[];
   loadingOffers: boolean;
+  isFavorite: (restaurantId: string) => boolean;
+  onToggleFavorite: (restaurantId: string) => void;
 }
 
-const ExplorePage = ({ offers, loadingOffers }: ExplorePageProps) => {
+const ExplorePage = ({ offers, loadingOffers, isFavorite, onToggleFavorite }: ExplorePageProps) => {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
@@ -102,7 +104,7 @@ const ExplorePage = ({ offers, loadingOffers }: ExplorePageProps) => {
         ) : (
           <div className="grid gap-4">
             {filteredOffers.map((offer, i) => (
-              <OfferCard key={offer.id} offer={offer} onClick={setSelectedOffer} index={i} dynamicRating={ratings[offer.restaurantName]} distanceKm={getOfferDistance(offer)} />
+              <OfferCard key={offer.id} offer={offer} onClick={setSelectedOffer} index={i} dynamicRating={ratings[offer.restaurantName]} distanceKm={getOfferDistance(offer)} isFavorite={isFavorite(offer.restaurantId)} onToggleFavorite={onToggleFavorite} />
             ))}
             {filteredOffers.length === 0 && (
               <div className="py-12 text-center">

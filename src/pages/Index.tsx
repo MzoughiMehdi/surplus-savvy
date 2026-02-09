@@ -16,6 +16,7 @@ import { useOffers, type Offer } from "@/hooks/useOffers";
 import { useAllRestaurantRatings } from "@/hooks/useAllRestaurantRatings";
 import { useUserLocation, getDistanceKm } from "@/hooks/useUserLocation";
 import { useAuth } from "@/hooks/useAuth";
+import { useFavorites } from "@/hooks/useFavorites";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
@@ -30,6 +31,7 @@ const Index = () => {
   const { offers, loading, refetch } = useOffers();
   const { ratings } = useAllRestaurantRatings();
   const { user, profile } = useAuth();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const userLocation = useUserLocation();
 
   const getOfferDistance = (offer: Offer) => {
@@ -82,7 +84,7 @@ const Index = () => {
   const renderTab = () => {
     switch (activeTab) {
       case "explore":
-        return <ExplorePage offers={offers} loadingOffers={loading} />;
+        return <ExplorePage offers={offers} loadingOffers={loading} isFavorite={isFavorite} onToggleFavorite={toggleFavorite} />;
       case "orders":
         return <OrdersPage />;
       case "favorites":
@@ -124,6 +126,8 @@ const Index = () => {
                       index={i}
                       dynamicRating={ratings[offer.restaurantName]}
                       distanceKm={getOfferDistance(offer)}
+                      isFavorite={isFavorite(offer.restaurantId)}
+                      onToggleFavorite={toggleFavorite}
                     />
                   ))}
                 </div>

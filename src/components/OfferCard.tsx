@@ -1,4 +1,4 @@
-import { Clock, Star, ShoppingBag, MapPin } from "lucide-react";
+import { Clock, Star, ShoppingBag, MapPin, Heart } from "lucide-react";
 import type { Offer } from "@/hooks/useOffers";
 
 interface OfferCardProps {
@@ -7,6 +7,8 @@ interface OfferCardProps {
   index: number;
   dynamicRating?: { avg: number; count: number };
   distanceKm?: number;
+  isFavorite?: boolean;
+  onToggleFavorite?: (restaurantId: string) => void;
 }
 
 const getStockColor = (itemsLeft: number) => {
@@ -27,11 +29,16 @@ const getUrgencyInfo = (pickupStart: string) => {
   return null;
 };
 
-const OfferCard = ({ offer, onClick, index, dynamicRating, distanceKm }: OfferCardProps) => {
+const OfferCard = ({ offer, onClick, index, dynamicRating, distanceKm, isFavorite, onToggleFavorite }: OfferCardProps) => {
   const discount = Math.round((1 - offer.discountedPrice / offer.originalPrice) * 100);
   const rating = dynamicRating?.avg ?? 0;
   const reviewCount = dynamicRating?.count ?? 0;
   const urgencyMin = getUrgencyInfo(offer.pickupStart);
+
+  const handleFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleFavorite?.(offer.restaurantId);
+  };
 
   return (
     <button
@@ -60,6 +67,18 @@ const OfferCard = ({ offer, onClick, index, dynamicRating, distanceKm }: OfferCa
               </div>
             )}
           </div>
+
+          {onToggleFavorite && (
+            <button
+              onClick={handleFavorite}
+              className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-card/80 backdrop-blur-sm shadow-md transition-transform active:scale-90"
+              aria-label={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+            >
+              <Heart
+                className={`h-5 w-5 transition-colors ${isFavorite ? "fill-destructive text-destructive" : "text-muted-foreground"}`}
+              />
+            </button>
+          )}
 
           <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
             <div className="flex items-center gap-2">
