@@ -1,56 +1,49 @@
 
 
-# Accelerer le chargement de la carte
+# Refonte visuelle de la carte : pins avec photo et popup amelioree
 
-## Probleme
+## 1. Nouveau style de carte
 
-Meme avec le geocodage en parallele, l'API Nominatim impose un rate-limit (~1 requete/seconde). Avec 7 restaurants, le chargement prend toujours 5-7 secondes. Ce probleme se reproduit a **chaque ouverture** de la carte.
+Remplacer le tile layer CartoDB Voyager par **Stadia Alidade Smooth** pour un rendu minimaliste et moderne avec des tons gris clairs qui mettent en valeur les marqueurs.
 
-## Solution : stocker les coordonnees GPS en base de donnees
+- Avant : `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png`
+- Apres : `https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png`
 
-Au lieu de geocoder les adresses a chaque visite, on stocke les coordonnees directement dans la table `restaurants`. Le geocodage ne se fait qu'une seule fois (a la creation/modification du restaurant).
+Applique dans `MapView.tsx` et `OfferDetail.tsx`.
 
-### 1. Migration de base de donnees
+## 2. Pins avec photo du restaurant visible directement
 
-Ajouter deux colonnes `latitude` et `longitude` (type `double precision`) a la table `restaurants`.
+Remplacer les cercles orange emoji par des **marqueurs ronds affichant la photo du restaurant** :
 
-Puis remplir automatiquement les coordonnees des restaurants existants via une fonction edge qui appelle Nominatim une seule fois pour chaque restaurant sans coordonnees.
+- Cercle de 48px avec la photo du restaurant en `background-image` (cover)
+- Bordure epaisse blanche (3px) + ombre portee
+- Petite fleche/triangle en bas pointant vers la position exacte
+- Badge de prix reduit affiche en overlay sur le coin du pin (ex: "3.99EUR")
+- Le tout en HTML/CSS pur via `L.divIcon`
 
-### 2. Modifier `src/hooks/useOffers.ts`
+## 3. Marqueur utilisateur ameliore
 
-Inclure `latitude` et `longitude` dans le `select` de la requete Supabase, et les ajouter a l'interface `Offer`.
+- Point bleu avec halo pulsant (style Google Maps)
+- Plus visible et distinctif par rapport aux pins restaurant
 
-### 3. Modifier `src/components/MapView.tsx`
+## 4. Popup enrichie au clic
 
-- Supprimer tout le systeme de geocodage (fonction `geocodeAddress`, cache, `useEffect` de geocodage)
-- Utiliser directement `offer.lat` et `offer.lng` depuis les donnees de la base
-- Les marqueurs s'affichent **instantanement** a l'ouverture de la carte
+Quand on clique sur un pin, la popup sera redesignee :
 
-### 4. Modifier `src/components/OfferDetail.tsx`
+- Image du lot en haut, coins arrondis, plus grande (120px de hauteur)
+- Nom du restaurant en gras avec une petite etoile de notation si disponible
+- Badge de categorie (ex: "Boulangerie", "Sushi")
+- Creneau de retrait avec icone horloge
+- Prix barre + prix reduit avec badge de reduction (ex: "-40%")
+- Bouton "Voir l'offre" arrondi avec la couleur primaire
+- Espacement et typographie ameliores pour un rendu type carte (card)
 
-- Supprimer l'appel a Nominatim pour la mini-carte
-- Utiliser directement les coordonnees de l'offre
+## Fichiers modifies
 
-### 5. Fonction edge `geocode-restaurants`
+- **`src/components/MapView.tsx`** : tile layer, marqueurs photo, marqueur utilisateur, popup enrichie
+- **`src/components/OfferDetail.tsx`** : tile layer uniquement
 
-Creer une fonction backend qui :
-- Recupere tous les restaurants sans coordonnees
-- Appelle Nominatim pour chacun (avec delai de 1s entre chaque pour respecter le rate-limit)
-- Met a jour les coordonnees en base
+## Aucune nouvelle dependance
 
-Cette fonction sera appelee une seule fois pour migrer les restaurants existants, puis les coordonnees seront renseignees lors de la creation de nouveaux restaurants.
-
-## Resultat
-
-- Ouverture de la carte : **instantanee** (0 appel API externe)
-- Les coordonnees sont calculees une seule fois par restaurant
-- Meilleure fiabilite (pas de dependance a Nominatim a chaque visite)
-
-## Fichiers concernes
-
-- **Migration SQL** : ajout colonnes `latitude` / `longitude`
-- **`supabase/functions/geocode-restaurants/index.ts`** : nouvelle fonction backend
-- **`src/hooks/useOffers.ts`** : ajout lat/lng au select et a l'interface
-- **`src/components/MapView.tsx`** : suppression geocodage, utilisation directe des coordonnees
-- **`src/components/OfferDetail.tsx`** : suppression geocodage, utilisation directe des coordonnees
+Tout est realise en HTML/CSS pur dans les `divIcon` et popups Leaflet.
 
