@@ -141,7 +141,7 @@ const MerchantOnboarding = () => {
 
   return (
     <div className="min-h-screen bg-background px-5 pb-8 pt-12">
-      <button onClick={() => navigate(-1)} className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+      <button onClick={() => navigate("/home")} className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
         <ArrowLeft className="h-4 w-4" /> Retour
       </button>
 

@@ -70,7 +70,7 @@ const CheckoutReturnPage = () => {
           <p className="text-xl font-bold text-foreground">Échec du paiement</p>
           <p className="text-sm text-muted-foreground">Le paiement n'a pas abouti.</p>
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/home")}
             className="mt-4 rounded-xl bg-primary px-6 py-3 font-bold text-primary-foreground"
           >
             Retour à l'accueil
