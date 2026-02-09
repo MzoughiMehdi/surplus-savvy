@@ -54,7 +54,7 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
       doubleClickZoom: false,
       attributionControl: false,
     });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png").addTo(map);
     L.marker(coords, {
       icon: L.divIcon({
         className: "",
