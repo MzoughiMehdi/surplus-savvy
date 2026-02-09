@@ -1,42 +1,50 @@
 
 
-# Afficher la photo uploadée pour Chez Nadia
+# Generation automatique quotidienne des offres
 
 ## Probleme
 
-L'offre du jour de Chez Nadia a une image Unsplash codee en dur (`https://images.unsplash.com/photo-1511690743698-d9d18f7e20f1`), alors que la vraie photo uploadee est stockee dans `surprise_bag_config.image_url`.
+Toutes les offres en base ont la date du **8 fevrier** (hier). Le hook `useOffers` filtre sur `CURRENT_DATE`, donc rien ne s'affiche aujourd'hui. De plus, la generation actuelle depend de l'ouverture du dashboard par le commercant, ce qui n'est pas fiable.
 
-## Solution
+## Ce qui va changer
 
-### 1. Mettre a jour l'offre du jour avec la bonne image
+### 1. Creer une fonction SQL `generate_daily_offers()`
 
-Executer un UPDATE SQL pour remplacer l'image Unsplash par la photo uploadee :
+Une fonction cote base de donnees qui :
+- Parcourt tous les restaurants ayant une configuration de panier surprise active
+- Verifie qu'aucune offre n'existe deja pour aujourd'hui
+- Cree automatiquement les offres du jour avec la quantite configuree (pas d'accumulation d'invendus)
+- Respecte les suspensions et personnalisations du calendrier (`daily_overrides`)
 
-```sql
-UPDATE offers
-SET image_url = 'https://yuqemnbwndyjmpzxlwyv.supabase.co/storage/v1/object/public/restaurant-images/offers/8a6c7d7a-dad6-4f05-b2a3-e3eb7ad0f7db/1770595057851.jpg'
-WHERE restaurant_id = 'a1000006-0000-0000-0000-000000000006'
-AND date = CURRENT_DATE;
-```
+### 2. Marquer les offres de la veille comme "invendues"
 
-### 2. Corriger la synchronisation dans `useSurpriseBagConfig.ts`
+Avant de generer les nouvelles offres, les offres d'hier encore actives avec des `items_left > 0` seront passees en `is_active = false` pour ne plus etre affichees. Les invendus ne sont jamais reportes au jour suivant.
 
-Actuellement, la fonction `syncTodayOffer` ne synchronise pas le champ `image_url` quand le commercant change la photo du panier. Il faut ajouter cette ligne dans la logique de synchronisation :
+### 3. Appeler la generation automatiquement au chargement
 
-```typescript
-if (updatedConfig.image_url !== undefined) offerUpdates.image_url = updatedConfig.image_url;
-```
+Modifier `useOffers.ts` pour appeler `generate_daily_offers()` via RPC avant de charger les offres. La premiere visite du jour declenche la creation. L'index unique `unique_offer_per_restaurant_per_day` empeche tout doublon.
 
-Cela garantit que chaque fois qu'un commercant change la photo dans sa configuration, l'offre du jour est immediatement mise a jour.
+### 4. Nettoyer le code du Dashboard
 
-### 3. Corriger la generation automatique dans `Dashboard.tsx`
+Supprimer la logique `generateTodayOffer` du `Dashboard.tsx` qui faisait doublon et dependait de la connexion du commercant.
 
-Verifier que la fonction `generateTodayOffer` inclut bien `image_url: config.image_url` lors de la creation de l'offre. (Cela a deja ete fait dans une etape precedente, mais il faut confirmer.)
+## Details techniques
+
+### Migration SQL
+- Marquer les offres passees comme inactives : `UPDATE offers SET is_active = false WHERE date < CURRENT_DATE`
+- Creer la fonction `generate_daily_offers()` en `SECURITY DEFINER` qui :
+  1. Desactive les offres des jours precedents
+  2. Insere les nouvelles offres du jour a partir de `surprise_bag_config` + `daily_overrides`
 
 ### Fichiers modifies
-- `src/hooks/useSurpriseBagConfig.ts` : ajouter la synchro de `image_url` dans `syncTodayOffer`
-- Migration SQL : corriger l'image de l'offre du jour pour Chez Nadia
+- **Migration SQL** : fonction `generate_daily_offers()` + nettoyage des anciennes offres
+- **`src/hooks/useOffers.ts`** : appel `supabase.rpc('generate_daily_offers')` avant le fetch
+- **`src/pages/Dashboard.tsx`** : suppression de `generateTodayOffer` et du `useEffect` associe
 
 ### Resultat
-- La photo uploadee s'affichera immediatement pour Chez Nadia
-- Les futurs changements de photo seront automatiquement repercutes sur l'offre du jour
+- Les offres s'affichent automatiquement chaque jour
+- Chaque jour repart a zero avec la quantite configuree
+- Les invendus de la veille sont marques inactifs et disparaissent
+- Les suspensions et overrides du calendrier sont respectes
+- Plus de dependance a l'ouverture du dashboard commercant
+
