@@ -39,7 +39,7 @@ const CheckoutReturnPage = () => {
 
         toast.success("Paiement confirmé ! Votre réservation est prête.");
         setStatus("success");
-        setTimeout(() => navigate("/?tab=orders"), 1500);
+        setTimeout(() => navigate("/home?tab=orders"), 1500);
       } catch (err) {
         console.error("Unexpected error:", err);
         setStatus("error");

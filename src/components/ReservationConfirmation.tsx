@@ -169,7 +169,7 @@ const ReservationConfirmation = ({
           <Clock className="h-4 w-4 text-primary" />
           <div>
             <p className="text-xs text-muted-foreground">Créneau de retrait</p>
-            <p className="text-sm font-semibold text-foreground">Aujourd'hui, {pickupStart} – {pickupEnd}</p>
+            <p className="text-sm font-semibold text-foreground">{pickupStart} – {pickupEnd}</p>
           </div>
         </div>
         <div className="border-t border-border pt-3">

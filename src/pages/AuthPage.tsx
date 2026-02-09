@@ -13,7 +13,8 @@ const AuthPage = () => {
   const { user, profile, loading, profileLoading, isAdmin, signOut } = useAuth();
   const [mode, setMode] = useState<Mode>(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get("mode") === "signup" ? "signup" : "login";
+    const m = params.get("mode");
+    return m === "signup" ? "signup" : m === "merchant-signup" ? "merchant-signup" : "login";
   });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -131,8 +132,8 @@ const AuthPage = () => {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
+        options: {
+            emailRedirectTo: mode === "merchant-signup" ? `${window.location.origin}/merchant-onboarding` : `${window.location.origin}/home`,
             data: { full_name: fullName, role },
           },
         });
