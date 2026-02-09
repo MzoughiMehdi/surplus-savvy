@@ -37,13 +37,18 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
       doubleClickZoom: false,
       attributionControl: false,
     });
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png").addTo(map);
+    L.tileLayer("https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png").addTo(map);
     L.marker(coords, {
       icon: L.divIcon({
         className: "",
-        html: `<div style="background:#16a34a;width:28px;height:28px;border-radius:50%;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,.3)"></div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+        html: `<div style="position:relative;width:36px;height:44px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));">
+          <div style="width:36px;height:36px;border-radius:50%;border:3px solid white;overflow:hidden;background:hsl(173,80%,26%);">
+            <img src="${offer.restaurantImage}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'" />
+          </div>
+          <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:9px solid white;"></div>
+        </div>`,
+        iconSize: [36, 44],
+        iconAnchor: [18, 44],
       }),
     }).addTo(map);
     mapInstanceRef.current = map;
