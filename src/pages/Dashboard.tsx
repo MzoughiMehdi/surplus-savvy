@@ -115,57 +115,6 @@ const Dashboard = () => {
     fetchData();
   }, [user]);
 
-  // Auto-generate today's offer
-  useEffect(() => {
-    if (!restaurant || !config || !config.is_active) return;
-    generateTodayOffer();
-  }, [restaurant, config]);
-
-  const generateTodayOffer = async () => {
-    if (!restaurant || !config) return;
-    const today = new Date().toISOString().split("T")[0];
-
-    // Check if today's offer already exists
-    const { data: existing } = await supabase
-      .from("offers")
-      .select("id")
-      .eq("restaurant_id", restaurant.id)
-      .eq("date", today)
-      .limit(1);
-
-    if (existing && existing.length > 0) return;
-
-    // Check for override
-    const { data: todayOverride } = await supabase
-      .from("daily_overrides")
-      .select("*")
-      .eq("restaurant_id", restaurant.id)
-      .eq("date", today)
-      .maybeSingle();
-
-    if (todayOverride?.is_suspended) return;
-
-    const qty = todayOverride?.quantity ?? config.daily_quantity;
-    const pStart = todayOverride?.pickup_start ?? config.pickup_start;
-    const pEnd = todayOverride?.pickup_end ?? config.pickup_end;
-    const salePrice = Number((config.base_price * 0.4).toFixed(2));
-
-    await supabase.from("offers").insert({
-      restaurant_id: restaurant.id,
-      title: "Panier surprise",
-      description: "Un assortiment surprise de nos meilleurs produits du jour",
-      original_price: config.base_price,
-      discounted_price: salePrice,
-      quantity: qty,
-      items_left: qty,
-      pickup_start: pStart,
-      pickup_end: pEnd,
-      category: "meals",
-      date: today,
-      is_active: true,
-      image_url: config.image_url ?? null,
-    });
-  };
 
   const fetchData = async () => {
     if (!user) return;

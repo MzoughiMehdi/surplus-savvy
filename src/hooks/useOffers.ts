@@ -23,6 +23,8 @@ export const useOffers = () => {
   const [loading, setLoading] = useState(true);
 
   const fetchOffers = async () => {
+    // Auto-generate today's offers (idempotent, no duplicates)
+    await supabase.rpc('generate_daily_offers');
     const today = new Date().toISOString().split("T")[0];
 
     const { data, error } = await supabase
