@@ -1,54 +1,66 @@
 
-# Ajouter les favoris restaurants avec bouton coeur
+# Mode Maintenance - Mettre l'application en indisponible
 
 ## Ce que ca fait
-- Un bouton coeur apparait sur chaque carte d'offre (page d'accueil et Explorer) et sur chaque commande (page Commandes)
-- Si le restaurant est en favori, le coeur est rempli en rouge (bien visible)
-- Un clic sur le coeur ajoute le restaurant aux favoris, un second clic le retire
-- La page Favoris affiche la liste des restaurants favoris avec leurs offres du jour
+- L'admin peut activer/desactiver un "mode maintenance" depuis la page Admin > Parametres
+- Quand le mode maintenance est actif, **tous les utilisateurs** (consommateurs et commercants) voient une page d'indisponibilite au lieu de l'application
+- L'admin peut ecrire un message personnalise (ex: "Maintenance en cours, retour prevu a 14h")
+- Un petit bouton discret "Admin" en bas de la page de maintenance permet a l'admin de se connecter et d'acceder au back-office pour desactiver la maintenance
+
+## Comment ca marche
+
+```text
+Utilisateur arrive
+       |
+       v
+  Mode maintenance actif ?
+       |
+  OUI  |   NON
+   v       v
+Page maintenance    Application normale
+(message custom)
+   |
+   v
+Bouton discret "Admin"
+   |
+   v
+Connexion admin -> /admin/settings
+   -> Desactiver maintenance
+```
 
 ## Modifications techniques
 
-### Etape 1 : Creer la table `favorites` en base de donnees
-```sql
-CREATE TABLE favorites (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  restaurant_id uuid NOT NULL REFERENCES restaurants(id),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE(user_id, restaurant_id)
-);
-ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
--- L'utilisateur ne peut gerer que ses propres favoris
-CREATE POLICY "Users can manage own favorites" ON favorites FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-```
+### 1. Base de donnees : ajouter les colonnes dans `platform_settings`
+Ajouter deux colonnes a la table `platform_settings` :
+- `maintenance_mode` (boolean, defaut `false`) : active/desactive la maintenance
+- `maintenance_message` (text, nullable) : message personnalise affiche aux utilisateurs
 
-### Etape 2 : Creer un hook `useFavorites`
-Nouveau fichier `src/hooks/useFavorites.ts` :
-- Charge les `restaurant_id` favoris de l'utilisateur connecte
-- Expose `favorites` (Set de restaurant_id), `isFavorite(restaurantId)`, `toggleFavorite(restaurantId)`
-- `toggleFavorite` fait un INSERT ou DELETE selon l'etat actuel, avec un `toast` de confirmation
-- Retourne un etat optimiste (mise a jour locale immediate avant la reponse serveur)
+La politique RLS existante permet deja la lecture par tous les utilisateurs authentifies et la modification par les admins. On ajoute une politique SELECT pour les utilisateurs anonymes (non connectes) afin qu'ils puissent aussi voir le statut de maintenance.
 
-### Etape 3 : Ajouter le coeur sur `OfferCard`
-Fichier `src/components/OfferCard.tsx` :
-- Ajouter une prop `isFavorite: boolean` et `onToggleFavorite: (restaurantId: string) => void`
-- Placer un bouton coeur en haut a droite de l'image (position absolute)
-- Coeur vide (`Heart`) si pas favori, coeur rempli rouge (`Heart` avec `fill="red"`) si favori
-- Le clic sur le coeur appelle `onToggleFavorite` et fait un `e.stopPropagation()` pour ne pas ouvrir le detail
+### 2. Nouveau hook : `src/hooks/useMaintenanceMode.ts`
+- Charge `maintenance_mode` et `maintenance_message` depuis `platform_settings`
+- Expose `isMaintenanceMode` et `maintenanceMessage`
+- Utilise `useQuery` avec un `staleTime` court pour garder l'etat a jour
 
-### Etape 4 : Ajouter le coeur sur `OrdersPage`
-Fichier `src/pages/OrdersPage.tsx` :
-- Utiliser `useFavorites` pour connaitre l'etat favori de chaque restaurant
-- Ajouter un petit coeur a cote du nom du restaurant dans chaque ligne de commande
-- Meme logique : clic = toggle, `stopPropagation`
+### 3. Nouvelle page : `src/pages/MaintenancePage.tsx`
+- Page plein ecran avec un design simple et clair
+- Affiche une icone de maintenance, le message personnalise de l'admin (ou un message par defaut)
+- En bas de page, un petit texte discret gris clair "Administration" qui est en fait un lien vers `/auth?redirect=admin`
+- Pas de navigation, pas de barre de menu
 
-### Etape 5 : Passer les props dans `Index.tsx` et `ExplorePage.tsx`
-- Utiliser `useFavorites` dans `Index.tsx` et passer `isFavorite` et `onToggleFavorite` a chaque `OfferCard`
-- Meme chose dans `ExplorePage.tsx`
+### 4. Modifier `src/App.tsx`
+- Utiliser le hook `useMaintenanceMode` au niveau du routeur
+- Si `isMaintenanceMode` est `true` :
+  - Afficher `MaintenancePage` sur **toutes les routes** sauf `/admin/*` et `/auth`
+  - Les routes admin restent accessibles pour que l'admin puisse desactiver la maintenance
+- Si `false` : fonctionnement normal
 
-### Etape 6 : Mettre a jour `FavoritesPage.tsx`
-- Charger les favoris de l'utilisateur avec les infos restaurant jointes
-- Afficher les restaurants favoris sous forme de cartes
-- Si des offres du jour existent pour ces restaurants, les afficher
-- Permettre de retirer un favori depuis cette page
+### 5. Modifier `src/pages/admin/AdminSettings.tsx`
+- Ajouter une section "Mode maintenance" en haut de la page avec :
+  - Un `Switch` pour activer/desactiver le mode
+  - Un champ `Textarea` pour saisir le message de maintenance
+  - Un bouton "Sauvegarder" quand le message est modifie
+- Indicateur visuel clair (badge rouge) quand le mode est actif
+
+### 6. Modifier `src/pages/AuthPage.tsx`
+- Apres connexion, si l'utilisateur est admin et vient de la page maintenance (param `redirect=admin`), rediriger vers `/admin/settings` au lieu de `/`
