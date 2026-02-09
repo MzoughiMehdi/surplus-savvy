@@ -1,52 +1,56 @@
 
 
-# Correction de la requete Signalements
+# Correction de l'onglet Reservations admin
 
 ## Probleme
 
-La migration a ajoute une FK `reports.user_id -> auth.users.id`, mais le code fait `profiles:user_id(email, full_name)`. PostgREST ne peut pas joindre `reports` a `profiles` car il n'y a pas de FK directe entre ces deux tables (elles partagent simplement le meme `user_id` via `auth.users`).
+Le meme probleme que pour les Signalements : la requete utilise `profiles:user_id(email, full_name)` mais PostgREST ne peut pas resoudre cette jointure car il n'y a pas de FK directe entre `reservations` et `profiles`.
 
-Erreur exacte :
-```
-Could not find a relationship between 'reports' and 'user_id' in the schema cache
-```
+Cela provoque une erreur 400, des retries en boucle, et rien ne s'affiche.
 
 ## Solution
 
-Modifier `src/pages/admin/AdminReports.tsx` pour supprimer la jointure `profiles:user_id(...)` et recuperer les donnees en deux etapes :
+Appliquer la meme approche que pour `AdminReports.tsx` : separer la requete en deux etapes.
 
-1. Requete principale : `reports` avec jointure `restaurants(name)` uniquement (celle-ci fonctionne grace a la FK ajoutee)
-2. Requete secondaire : recuperer les profils des utilisateurs concernes depuis la table `profiles`
+### Fichier modifie : `src/pages/admin/AdminReservations.tsx`
 
-Alternativement (plus simple) : faire la requete sans jointure sur profiles, et afficher le `user_id` ou faire un appel separe.
+Dans le `queryFn` de la requete `admin-reservations` :
 
-### Approche retenue : requete sans jointure profiles
+1. Remplacer `.select("*, restaurants(name), offers(title), profiles:user_id(email, full_name)")` par `.select("*, restaurants(name), offers(title)")`
+2. Extraire les `user_id` uniques des resultats
+3. Faire une seconde requete vers `profiles` pour recuperer `user_id, email, full_name`
+4. Fusionner les donnees avec un `Map` cote client
 
-Remplacer la requete :
+### Code concret
+
 ```typescript
-.select("*, restaurants(name), profiles:user_id(email, full_name)")
+// Etape 1 : reports sans profiles
+const { data, error } = await query;
+if (error) throw error;
+
+const reservations = data as any[];
+if (reservations.length === 0) return reservations;
+
+// Etape 2 : profils a part
+const userIds = [...new Set(reservations.map((r) => r.user_id))];
+const { data: profiles } = await supabase
+  .from("profiles")
+  .select("user_id, email, full_name")
+  .in("user_id", userIds);
+
+const profileMap = new Map((profiles ?? []).map((p) => [p.user_id, p]));
+return reservations.map((r) => ({
+  ...r,
+  profiles: profileMap.get(r.user_id) ?? null,
+}));
 ```
 
-Par :
-```typescript
-.select("*, restaurants(name)")
-```
-
-Puis faire une seconde requete pour recuperer les profils des utilisateurs presents dans les resultats.
-
-### Fichier modifie
+## Resume
 
 | Fichier | Modification |
 |---|---|
-| `src/pages/admin/AdminReports.tsx` | Separer la requete en 2 : reports + restaurants, puis profils a part |
+| `src/pages/admin/AdminReservations.tsx` | Supprimer jointure `profiles:user_id`, fetch profils separement |
 
-### Detail technique
+## Resultat attendu
 
-Dans le `queryFn` :
-1. Fetch les reports avec `.select("*, restaurants(name)")`
-2. Extraire les `user_id` uniques des resultats
-3. Fetch les profils correspondants avec `.from("profiles").select("user_id, email, full_name").in("user_id", userIds)`
-4. Fusionner les donnees cote client
-
-Le reste du composant (affichage, filtres, dialog) reste inchange, il suffit d'adapter l'acces aux donnees profil.
-
+Les reservations s'afficheront immediatement avec le nom/email du consommateur, le restaurant, l'offre, la date, le statut et le code retrait.
