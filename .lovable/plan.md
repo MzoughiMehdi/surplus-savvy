@@ -1,40 +1,46 @@
 
-# Simplification des messages d'urgence sur les cartes d'offres
 
-## Probleme
+# Correction des bugs 3, 5 et 10
 
-Actuellement, deux messages differents s'affichent :
-- En rouge : "Encore 5min" (le creneau se termine bientot)
-- En orange : "Dans 5min" (le creneau commence bientot)
+## Bug 3 : Bouton erreur CheckoutReturnPage pointe vers `/` au lieu de `/home`
 
-Ces deux messages pretent a confusion car ils se ressemblent mais signifient des choses differentes. De plus, "minutes" n'a pas de "s".
+**Fichier** : `src/pages/CheckoutReturnPage.tsx` (ligne 73)
 
-## Solution
+**Probleme** : Quand le paiement echoue, le bouton "Retour a l'accueil" redirige vers `/` (landing page) au lieu de `/home` (app principale).
 
-Remplacer les deux messages par un seul message unifie : **"Dernier retrait dans X minutes"**, affiche en rouge dans les deux cas (puisqu'il s'agit d'une urgence).
+**Correction** : Changer `navigate("/")` en `navigate("/home")`.
 
-### Fichier modifie : `src/components/OfferCard.tsx`
+---
 
-1. **Supprimer la distinction "starting" / "ending"** dans la fonction `getUrgencyInfo` : retourner simplement le nombre de minutes restantes avant la fin du creneau (pas avant le debut).
-2. **Unifier le badge** : un seul style (rouge) avec le texte "Dernier retrait dans X minutes".
-3. **Corriger le pluriel** : "minute" au singulier si 1, "minutes" sinon.
+## Bug 5 : Pas de prompt de connexion sur OrdersPage pour les invites
 
-### Changements concrets
+**Fichier** : `src/pages/OrdersPage.tsx`
 
-Dans `getUrgencyInfo` :
-- Quand le creneau est en cours et qu'il reste moins de 60 min : retourner les minutes restantes
-- Quand le creneau n'a pas encore commence : ne plus afficher d'urgence (le creneau normal s'affiche)
+**Probleme** : Un utilisateur non connecte qui accede a l'onglet "Commandes" voit un ecran vide ("Aucune reservation") au lieu d'un prompt de connexion, contrairement a FavoritesPage qui gere ce cas.
 
-Dans le JSX du badge urgence :
-- Remplacer les deux blocs (rouge "Encore" et orange "Dans") par un seul bloc rouge :
-```
-Dernier retrait dans {minutes} minute{minutes > 1 ? "s" : ""}
-```
+**Correction** : Ajouter un bloc conditionnel avant le contenu principal, identique au pattern de FavoritesPage :
+- Icone ShoppingBag centree
+- Titre "Connectez-vous pour voir vos commandes"
+- Sous-titre explicatif
+- Bouton "Se connecter" qui redirige vers `/auth`
 
-## Resume
+---
 
-| Element | Avant | Apres |
-|---|---|---|
-| Creneau se termine bientot | Rouge "Encore 5min" | Rouge "Dernier retrait dans 5 minutes" |
-| Creneau commence bientot | Orange "Dans 5min" | Supprime (affichage normal du creneau) |
-| Pluriel | Absent | "minute" / "minutes" |
+## Bug 10 : `navigate(-1)` non fiable dans MerchantOnboarding
+
+**Fichier** : `src/pages/MerchantOnboarding.tsx` (ligne 144)
+
+**Probleme** : Le bouton "Retour" en haut de la page utilise `navigate(-1)` qui remonte dans l'historique du navigateur. Si l'utilisateur arrive depuis un lien email (confirmation), il n'y a pas de page precedente, ce qui provoque un comportement imprevisible.
+
+**Correction** : Remplacer `navigate(-1)` par `navigate("/home")` pour garantir une navigation deterministe vers l'application.
+
+---
+
+## Resume des modifications
+
+| Bug | Fichier | Changement |
+|-----|---------|------------|
+| 3 | `CheckoutReturnPage.tsx` L73 | `navigate("/")` -> `navigate("/home")` |
+| 5 | `OrdersPage.tsx` | Ajout prompt connexion pour invites |
+| 10 | `MerchantOnboarding.tsx` L144 | `navigate(-1)` -> `navigate("/home")` |
+
