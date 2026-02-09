@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   ArrowLeft, CheckCircle, XCircle, Clock, Phone, Mail,
-  MapPin, Tag, Calendar, Star, ShoppingBag, Users,
+  MapPin, Tag, Calendar, Star, ShoppingBag, Users, PauseCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ const statusConfig: Record<string, { label: string; icon: typeof Clock; classNam
   pending: { label: "En attente", icon: Clock, className: "bg-warning/20 text-warning border-warning/30" },
   approved: { label: "Approuvé", icon: CheckCircle, className: "bg-primary/20 text-primary border-primary/30" },
   rejected: { label: "Rejeté", icon: XCircle, className: "bg-destructive/20 text-destructive border-destructive/30" },
+  suspended: { label: "Suspendu", icon: PauseCircle, className: "bg-orange-500/20 text-orange-600 border-orange-500/30" },
 };
 
 const AdminRestaurantDetail = () => {
@@ -48,27 +49,24 @@ const AdminRestaurantDetail = () => {
   const [offersCount, setOffersCount] = useState(0);
   const [reservationsCount, setReservationsCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
 
     const fetchAll = async () => {
-      // Restaurant
       const { data: r } = await supabase.from("restaurants").select("*").eq("id", id).single();
       if (!r) { setLoading(false); return; }
       setRestaurant(r);
 
-      // Owner profile
       const { data: p } = await supabase.from("profiles").select("full_name, email").eq("user_id", r.owner_id).maybeSingle();
       setOwner(p);
 
-      // Rating
       const { data: rat } = await supabase.rpc("get_restaurant_rating", { p_restaurant_id: id });
       if (rat && rat.length > 0 && rat[0].avg_rating !== null) {
         setRating({ avg: Number(rat[0].avg_rating), count: Number(rat[0].review_count) });
       }
 
-      // Counts
       const { count: oc } = await supabase.from("offers").select("id", { count: "exact", head: true }).eq("restaurant_id", id);
       setOffersCount(oc ?? 0);
 
@@ -87,6 +85,56 @@ const AdminRestaurantDetail = () => {
     if (error) { toast.error(error.message); return; }
     toast.success(`Restaurant ${status === "approved" ? "approuvé" : "rejeté"}`);
     setRestaurant((prev) => prev ? { ...prev, status } : prev);
+  };
+
+  const suspendRestaurant = async () => {
+    if (!id) return;
+    setActionLoading(true);
+    try {
+      const { error } = await supabase.from("restaurants").update({ status: "suspended" }).eq("id", id);
+      if (error) throw error;
+
+      await supabase.from("offers").update({ is_active: false }).eq("restaurant_id", id).eq("is_active", true);
+
+      try {
+        await supabase.functions.invoke("manage-subscription-status", {
+          body: { restaurantId: id, action: "pause" },
+        });
+      } catch (e) {
+        console.warn("Stripe pause failed (non-blocking):", e);
+      }
+
+      toast.success("Restaurant suspendu");
+      setRestaurant((prev) => prev ? { ...prev, status: "suspended" } : prev);
+    } catch (e: any) {
+      toast.error(e.message || "Erreur");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const reactivateRestaurant = async () => {
+    if (!id) return;
+    setActionLoading(true);
+    try {
+      const { error } = await supabase.from("restaurants").update({ status: "approved" }).eq("id", id);
+      if (error) throw error;
+
+      try {
+        await supabase.functions.invoke("manage-subscription-status", {
+          body: { restaurantId: id, action: "resume" },
+        });
+      } catch (e) {
+        console.warn("Stripe resume failed (non-blocking):", e);
+      }
+
+      toast.success("Restaurant réactivé");
+      setRestaurant((prev) => prev ? { ...prev, status: "approved" } : prev);
+    } catch (e: any) {
+      toast.error(e.message || "Erreur");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   if (loading) return <p className="text-muted-foreground p-6">Chargement...</p>;
@@ -236,10 +284,14 @@ const AdminRestaurantDetail = () => {
             </>
           )}
           {restaurant.status === "approved" && (
-            <Button variant="outline" onClick={() => updateStatus("rejected")}>Suspendre</Button>
+            <Button variant="outline" disabled={actionLoading} onClick={suspendRestaurant}>
+              Suspendre
+            </Button>
           )}
-          {restaurant.status === "rejected" && (
-            <Button variant="outline" onClick={() => updateStatus("approved")}>Réactiver</Button>
+          {(restaurant.status === "suspended" || restaurant.status === "rejected") && (
+            <Button variant="outline" disabled={actionLoading} onClick={reactivateRestaurant}>
+              Réactiver
+            </Button>
           )}
         </CardContent>
       </Card>
