@@ -11,7 +11,10 @@ type Mode = "login" | "signup" | "merchant-signup" | "forgot-password";
 const AuthPage = () => {
   const navigate = useNavigate();
   const { user, profile, loading, profileLoading, isAdmin, signOut } = useAuth();
-  const [mode, setMode] = useState<Mode>("login");
+  const [mode, setMode] = useState<Mode>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("mode") === "signup" ? "signup" : "login";
+  });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -37,7 +40,7 @@ const AuthPage = () => {
       hasRedirected.current = true;
       const name = profile?.full_name || user.user_metadata?.full_name;
       toast.success(name ? `Bienvenue ${name} !` : "Bienvenue !");
-      navigate("/", { replace: true });
+      navigate("/home", { replace: true });
     }
   }, [user, loading, profile, navigate, isAdmin, redirectParam, signOut]);
 
@@ -65,7 +68,7 @@ const AuthPage = () => {
     if (data?.role === "merchant") {
       navigate("/dashboard");
     } else {
-      navigate(fallback);
+      navigate("/home");
     }
   };
 
@@ -151,7 +154,7 @@ const AuthPage = () => {
 
   return (
     <div className="min-h-screen bg-background px-5 pb-8 pt-12">
-      <button onClick={() => navigate("/")} className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
+      <button onClick={() => navigate("/home")} className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
         <ArrowLeft className="h-4 w-4" /> Retour
       </button>
 
@@ -176,7 +179,7 @@ const AuthPage = () => {
             type="button"
             onClick={async () => {
               const { error } = await lovable.auth.signInWithOAuth("google", {
-                redirect_uri: window.location.origin,
+                redirect_uri: window.location.origin + "/home",
               });
               if (error) toast.error("Erreur avec Google : " + error.message);
             }}
@@ -194,7 +197,7 @@ const AuthPage = () => {
             type="button"
             onClick={async () => {
               const { error } = await lovable.auth.signInWithOAuth("apple", {
-                redirect_uri: window.location.origin,
+                redirect_uri: window.location.origin + "/home",
               });
               if (error) toast.error("Erreur avec Apple : " + error.message);
             }}
