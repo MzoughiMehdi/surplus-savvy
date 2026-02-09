@@ -51,7 +51,7 @@ const Index = () => {
     const tab = searchParams.get("tab");
     if (tab === "orders") {
       setActiveTab("orders");
-      window.history.replaceState({}, "", "/");
+      window.history.replaceState({}, "", "/home");
     }
   }, [searchParams]);
 

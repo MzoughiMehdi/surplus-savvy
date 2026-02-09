@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { useMaintenanceMode } from "@/hooks/useMaintenanceMode";
 import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
+import WelcomePage from "./pages/WelcomePage";
 import MerchantOnboarding from "./pages/MerchantOnboarding";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
@@ -43,7 +44,8 @@ const AppRoutes = () => {
         <Route path="*" element={<MaintenancePage message={maintenanceMessage} />} />
       ) : (
         <>
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={<WelcomePage />} />
+          <Route path="/home" element={<Index />} />
           <Route path="/merchant-onboarding" element={<MerchantOnboarding />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/checkout" element={<CheckoutPage />} />
