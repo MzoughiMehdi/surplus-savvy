@@ -1,51 +1,52 @@
 
 
-# Correction de l'onglet Signalements
+# Correction de la requete Signalements
 
 ## Probleme
 
-La requete dans `AdminReports.tsx` utilise des jointures PostgREST (`restaurants(name)`, `profiles:user_id(email, full_name)`) mais la table `reports` n'a **aucune foreign key** definie. PostgREST retourne donc une erreur 400 :
+La migration a ajoute une FK `reports.user_id -> auth.users.id`, mais le code fait `profiles:user_id(email, full_name)`. PostgREST ne peut pas joindre `reports` a `profiles` car il n'y a pas de FK directe entre ces deux tables (elles partagent simplement le meme `user_id` via `auth.users`).
 
+Erreur exacte :
 ```
-Could not find a relationship between 'reports' and 'restaurants'
+Could not find a relationship between 'reports' and 'user_id' in the schema cache
 ```
-
-Cela provoque des tentatives repetees (retry) qui donnent l'impression de lenteur, et aucun signalement ne s'affiche.
 
 ## Solution
 
-### 1. Migration SQL : ajouter les foreign keys manquantes
+Modifier `src/pages/admin/AdminReports.tsx` pour supprimer la jointure `profiles:user_id(...)` et recuperer les donnees en deux etapes :
 
-Ajouter trois contraintes de cle etrangere sur la table `reports` :
+1. Requete principale : `reports` avec jointure `restaurants(name)` uniquement (celle-ci fonctionne grace a la FK ajoutee)
+2. Requete secondaire : recuperer les profils des utilisateurs concernes depuis la table `profiles`
 
-```sql
-ALTER TABLE public.reports
-  ADD CONSTRAINT reports_user_id_fkey
-  FOREIGN KEY (user_id) REFERENCES auth.users(id);
+Alternativement (plus simple) : faire la requete sans jointure sur profiles, et afficher le `user_id` ou faire un appel separe.
 
-ALTER TABLE public.reports
-  ADD CONSTRAINT reports_restaurant_id_fkey
-  FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id);
+### Approche retenue : requete sans jointure profiles
 
-ALTER TABLE public.reports
-  ADD CONSTRAINT reports_reservation_id_fkey
-  FOREIGN KEY (reservation_id) REFERENCES public.reservations(id);
+Remplacer la requete :
+```typescript
+.select("*, restaurants(name), profiles:user_id(email, full_name)")
 ```
 
-Ces foreign keys permettront a PostgREST de resoudre correctement les jointures dans la requete existante.
+Par :
+```typescript
+.select("*, restaurants(name)")
+```
 
-### 2. Aucune modification de code necessaire
+Puis faire une seconde requete pour recuperer les profils des utilisateurs presents dans les resultats.
 
-Le code de `AdminReports.tsx` est deja correct. Une fois les foreign keys ajoutees, la requete `.select("*, restaurants(name), profiles:user_id(email, full_name)")` fonctionnera sans erreur.
+### Fichier modifie
 
-## Resume
-
-| Element | Action |
+| Fichier | Modification |
 |---|---|
-| Migration SQL | Ajouter 3 foreign keys sur la table `reports` |
-| Code | Aucun changement |
+| `src/pages/admin/AdminReports.tsx` | Separer la requete en 2 : reports + restaurants, puis profils a part |
 
-## Resultat attendu
+### Detail technique
 
-Apres la migration, les signalements s'afficheront immediatement avec le nom du restaurant et du consommateur, sans lenteur.
+Dans le `queryFn` :
+1. Fetch les reports avec `.select("*, restaurants(name)")`
+2. Extraire les `user_id` uniques des resultats
+3. Fetch les profils correspondants avec `.from("profiles").select("user_id, email, full_name").in("user_id", userIds)`
+4. Fusionner les donnees cote client
+
+Le reste du composant (affichage, filtres, dialog) reste inchange, il suffit d'adapter l'acces aux donnees profil.
 
