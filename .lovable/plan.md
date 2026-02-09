@@ -1,24 +1,120 @@
 
-# Remplacer la liste deroulante par un champ texte avec autocompletion
 
-## Modification
+# Onglet Reservations admin, Signalements consommateur et admin
 
-**Fichier : `src/pages/admin/AdminPayouts.tsx`**
+## 1. Page admin "Reservations" (`/admin/reservations`)
 
-Remplacer le `Select` du filtre "Commercant" (lignes 82-95) par un composant Popover + Command (cmdk) qui fonctionne comme un champ texte avec autocompletion :
+Creer une nouvelle page `src/pages/admin/AdminReservations.tsx` qui affiche toutes les reservations de la plateforme, avec les memes types de filtres que la page Paiements :
 
-- L'admin tape du texte dans un champ `Input`
-- Une liste de suggestions filtrees apparait en dessous (basee sur la liste des restaurants)
-- Cliquer sur une suggestion selectionne le restaurant et filtre les paiements
-- Un bouton "x" ou vider le champ remet le filtre a "Tous"
+- **Filtre par commercant** : champ texte avec autocompletion (meme composant que Paiements)
+- **Filtre par statut** : Select (Tous / En attente / Acceptee / Retiree / Annulee)
+- **Filtre par date** : date debut et date fin
 
-### Details techniques
+Tableau avec colonnes : Consommateur (email ou nom), Restaurant, Offre, Date, Statut, Code retrait.
 
-- Utiliser les composants `Popover` + `Command` (deja disponibles dans le projet via `cmdk`) pour creer un combobox avec recherche textuelle
-- Ajouter un state `searchQuery` pour le texte saisi
-- Le `Popover` s'ouvre quand le champ est focus et qu'il y a du texte
-- La liste `CommandItem` affiche les restaurants dont le nom contient le texte saisi
-- Selectionner un item met a jour `restaurantFilter` avec l'id du restaurant et affiche le nom dans le champ
-- Vider le champ remet `restaurantFilter` a `"all"`
-- Imports a ajouter : `Popover`, `PopoverTrigger`, `PopoverContent`, `Command`, `CommandInput`, `CommandList`, `CommandEmpty`, `CommandGroup`, `CommandItem`
-- Imports a retirer : `Select`, `SelectContent`, `SelectItem`, `SelectTrigger`, `SelectValue` (si plus utilises -- ils restent pour le filtre Statut)
+### Fichiers concernes
+- **Creer** `src/pages/admin/AdminReservations.tsx`
+- **Modifier** `src/pages/admin/AdminLayout.tsx` : ajouter "Reservations" dans `navItems` (icone `ClipboardList`, url `/admin/reservations`)
+- **Modifier** `src/App.tsx` : ajouter la route `<Route path="reservations" element={<AdminReservations />} />`
+
+## 2. Systeme de signalement cote consommateur
+
+Permettre a un consommateur de signaler une commande (texte + photo) depuis le detail de sa reservation.
+
+### Base de donnees
+
+Creer une table `reports` via migration SQL :
+
+```sql
+CREATE TABLE public.reports (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  reservation_id uuid NOT NULL,
+  restaurant_id uuid NOT NULL,
+  message text NOT NULL,
+  image_url text,
+  status text NOT NULL DEFAULT 'pending',
+  admin_notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
+
+-- Consommateurs peuvent creer et voir leurs propres signalements
+CREATE POLICY "Users can insert own reports"
+  ON public.reports FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can view own reports"
+  ON public.reports FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- Admins peuvent tout voir et mettre a jour
+CREATE POLICY "Admins can view all reports"
+  ON public.reports FOR SELECT
+  USING (has_role(auth.uid(), 'admin'));
+
+CREATE POLICY "Admins can update reports"
+  ON public.reports FOR UPDATE
+  USING (has_role(auth.uid(), 'admin'));
+```
+
+Creer un bucket storage `report-images` (public) pour les photos de signalement.
+
+### Bouton "Signaler" dans le detail de commande
+
+**Modifier** `src/components/ReservationConfirmation.tsx` :
+- Ajouter un bouton "Signaler un probleme" (icone `Flag`) en bas de la page
+- Au clic, ouvrir un Dialog avec :
+  - Un champ texte (Textarea) pour decrire le probleme
+  - Un bouton d'upload photo (upload vers le bucket `report-images`)
+  - Un bouton "Envoyer le signalement"
+- Apres envoi, inserer une ligne dans la table `reports`
+- Afficher un toast de confirmation
+- Si un signalement existe deja pour cette reservation, afficher "Signalement envoye" au lieu du bouton
+
+## 3. Onglet admin "Signalements" (`/admin/reports`)
+
+Creer une page `src/pages/admin/AdminReports.tsx` pour consulter tous les signalements.
+
+### Contenu de la page
+- Liste des signalements avec : Consommateur, Restaurant, Date, Message (tronque), Photo (miniature cliquable), Statut
+- **Filtre par statut** : Tous / En attente / Traite / Rejete
+- **Filtre par commercant** : champ texte avec autocompletion
+- Cliquer sur un signalement ouvre un detail avec :
+  - Le message complet
+  - La photo en grand
+  - Un champ "Notes admin" (Textarea) pour ajouter des commentaires
+  - Boutons "Marquer traite" / "Rejeter" qui mettent a jour le statut
+
+### Fichiers concernes
+- **Creer** `src/pages/admin/AdminReports.tsx`
+- **Modifier** `src/pages/admin/AdminLayout.tsx` : ajouter "Signalements" dans `navItems` (icone `Flag`, url `/admin/reports`)
+- **Modifier** `src/App.tsx` : ajouter la route `<Route path="reports" element={<AdminReports />} />`
+
+## Resume des fichiers
+
+| Fichier | Action |
+|---|---|
+| Migration SQL | Creer table `reports` + RLS + bucket `report-images` |
+| `src/pages/admin/AdminReservations.tsx` | Creer |
+| `src/pages/admin/AdminReports.tsx` | Creer |
+| `src/components/ReservationConfirmation.tsx` | Modifier (ajouter bouton Signaler + Dialog) |
+| `src/pages/admin/AdminLayout.tsx` | Modifier (ajouter 2 entrees nav) |
+| `src/App.tsx` | Modifier (ajouter 2 routes) |
+
+## Navigation admin finale
+
+```text
++------------------+
+| Vue d'ensemble   |
+| Restaurants      |
+| Reservations NEW |
+| Paiements        |
+| Signalements NEW |
+| Analytics        |
+| Parametres       |
++------------------+
+```
+
