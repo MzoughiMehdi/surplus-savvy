@@ -579,6 +579,7 @@ export type Database = {
       }
     }
     Functions: {
+      generate_daily_offers: { Args: never; Returns: undefined }
       get_all_restaurant_ratings: {
         Args: never
         Returns: {
