@@ -31,7 +31,7 @@ export const mockOffers: Offer[] = [
     restaurantName: "Le Petit Bistro",
     restaurantImage: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=100&h=100&fit=crop",
     category: "meals",
-    title: "Panier Surprise – Sélection du Chef",
+    title: "Lot Anti-Gaspi – Sélection du Chef",
     description: "Un mélange des meilleurs plats du jour : entrées, plats et accompagnements. Parfait pour 2 personnes.",
     originalPrice: 25.00,
     discountedPrice: 8.99,

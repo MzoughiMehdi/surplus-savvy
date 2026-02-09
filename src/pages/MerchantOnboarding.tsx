@@ -293,8 +293,8 @@ const MerchantOnboarding = () => {
       {/* STEP: Surprise bag config */}
       {step === "bag" && (
         <div className="animate-fade-in-up">
-          <h1 className="font-display text-2xl font-bold text-foreground">Vos paniers surprise</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Configurez votre offre quotidienne de paniers surprise</p>
+          <h1 className="font-display text-2xl font-bold text-foreground">Vos Lots Anti-Gaspi</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Configurez votre offre quotidienne de lots anti-gaspi</p>
           <div className="mt-6 space-y-4">
             <div>
               <label className="text-sm font-medium text-foreground flex items-center gap-2 mb-2">
@@ -360,9 +360,9 @@ const MerchantOnboarding = () => {
               <p className="mt-1 text-xs text-muted-foreground">{address}, {postalCode} {city}</p>
             </div>
             <div className="rounded-xl bg-card p-4 shadow-sm">
-              <p className="text-xs text-muted-foreground">Panier surprise</p>
+              <p className="text-xs text-muted-foreground">Lot Anti-Gaspi</p>
               <p className="text-sm font-semibold text-foreground">
-                {bagPrice}€ → <span className="text-primary">{salePrice}€</span> · {bagQuantity} paniers/jour
+                {bagPrice}€ → <span className="text-primary">{salePrice}€</span> · {bagQuantity} lots/jour
               </p>
               <p className="mt-1 text-xs text-muted-foreground">Retrait {bagPickupStart} – {bagPickupEnd}</p>
             </div>

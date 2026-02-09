@@ -48,7 +48,7 @@ const SurpriseBagConfig = ({ config, onUpdate, userId }: Props) => {
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-display text-lg font-bold text-foreground flex items-center gap-2">
           <Package className="h-5 w-5 text-primary" />
-          Panier surprise
+          Lot Anti-Gaspi
         </h2>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">{isActive ? "Actif" : "Inactif"}</span>
