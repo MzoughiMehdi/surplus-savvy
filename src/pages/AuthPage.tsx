@@ -10,7 +10,7 @@ type Mode = "login" | "signup" | "merchant-signup" | "forgot-password";
 
 const AuthPage = () => {
   const navigate = useNavigate();
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, isAdmin, signOut } = useAuth();
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,19 +18,28 @@ const AuthPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const hasRedirected = useRef(false);
+  const searchParams = new URLSearchParams(window.location.search);
+  const redirectParam = searchParams.get("redirect");
 
   // Auto-redirect when OAuth session is detected
   useEffect(() => {
     if (!loading && user && !hasRedirected.current) {
+      if (redirectParam === "admin") {
+        if (isAdmin) {
+          hasRedirected.current = true;
+          navigate("/admin/settings", { replace: true });
+        } else {
+          // Not admin — sign out so the real admin can log in
+          signOut();
+        }
+        return;
+      }
       hasRedirected.current = true;
       const name = profile?.full_name || user.user_metadata?.full_name;
       toast.success(name ? `Bienvenue ${name} !` : "Bienvenue !");
       navigate("/", { replace: true });
     }
-  }, [user, loading, profile, navigate]);
-
-  const searchParams = new URLSearchParams(window.location.search);
-  const redirectParam = searchParams.get("redirect");
+  }, [user, loading, profile, navigate, isAdmin, redirectParam, signOut]);
 
   const redirectByRole = async (userId: string, fallback: string) => {
     // Check if admin redirect requested
