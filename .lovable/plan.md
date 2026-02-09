@@ -1,44 +1,42 @@
 
 
-# Corriger les photos et descriptions des offres sur la page d'accueil
+# Afficher la photo uploadée pour Chez Nadia
 
-## Cause du probleme
+## Probleme
 
-Lors du nettoyage des doublons, toutes les offres ont ete remplacees par des offres generiques identiques :
-- Meme titre : "Panier surprise"
-- Meme description
-- Aucune image (`image_url` = null)
-
-Le composant `OfferCard` affiche alors une image par defaut identique pour tous.
+L'offre du jour de Chez Nadia a une image Unsplash codee en dur (`https://images.unsplash.com/photo-1511690743698-d9d18f7e20f1`), alors que la vraie photo uploadee est stockee dans `surprise_bag_config.image_url`.
 
 ## Solution
 
-### 1. Mettre a jour les offres existantes avec des images et descriptions uniques
+### 1. Mettre a jour l'offre du jour avec la bonne image
 
-Executer un UPDATE SQL pour donner a chaque offre de demo une image et une description correspondant a son restaurant :
+Executer un UPDATE SQL pour remplacer l'image Unsplash par la photo uploadee :
 
-- **Le Fournil** (bakery) : image boulangerie, description viennoiseries
-- **Sushi Yuki** (sushi) : image sushi, description sushi
-- **Bio & Local** (grocery) : image epicerie, description fruits/legumes
-- **Dolce Vita** (dessert) : image patisserie, description desserts
-- **Le Bistrot** (meals) : image bistrot, description plats du jour
-- **Chez Nadia** (meals) : image traiteur oriental, description specialites orientales
-
-### 2. Utiliser l'image du restaurant comme fallback dans `useOffers.ts`
-
-Modifier la ligne qui definit `image` dans le mapping pour utiliser l'image du restaurant quand l'offre n'a pas d'image propre :
-
-```
-image: o.image_url ?? o.restaurants?.image_url ?? fallback_unsplash
+```sql
+UPDATE offers
+SET image_url = 'https://yuqemnbwndyjmpzxlwyv.supabase.co/storage/v1/object/public/restaurant-images/offers/8a6c7d7a-dad6-4f05-b2a3-e3eb7ad0f7db/1770595057851.jpg'
+WHERE restaurant_id = 'a1000006-0000-0000-0000-000000000006'
+AND date = CURRENT_DATE;
 ```
 
-Cela garantit que meme si une offre n'a pas de photo dediee, elle affichera au minimum la photo du restaurant.
+### 2. Corriger la synchronisation dans `useSurpriseBagConfig.ts`
+
+Actuellement, la fonction `syncTodayOffer` ne synchronise pas le champ `image_url` quand le commercant change la photo du panier. Il faut ajouter cette ligne dans la logique de synchronisation :
+
+```typescript
+if (updatedConfig.image_url !== undefined) offerUpdates.image_url = updatedConfig.image_url;
+```
+
+Cela garantit que chaque fois qu'un commercant change la photo dans sa configuration, l'offre du jour est immediatement mise a jour.
+
+### 3. Corriger la generation automatique dans `Dashboard.tsx`
+
+Verifier que la fonction `generateTodayOffer` inclut bien `image_url: config.image_url` lors de la creation de l'offre. (Cela a deja ete fait dans une etape precedente, mais il faut confirmer.)
 
 ### Fichiers modifies
-- `src/hooks/useOffers.ts` : fallback image vers restaurant
-- Migration SQL : mise a jour des images et descriptions des offres de demo
+- `src/hooks/useSurpriseBagConfig.ts` : ajouter la synchro de `image_url` dans `syncTodayOffer`
+- Migration SQL : corriger l'image de l'offre du jour pour Chez Nadia
 
 ### Resultat
-- Chaque restaurant aura une photo et description unique sur la page d'accueil
-- Les futures offres auto-generees utiliseront la photo du `surprise_bag_config`, ou a defaut celle du restaurant
-
+- La photo uploadee s'affichera immediatement pour Chez Nadia
+- Les futurs changements de photo seront automatiquement repercutes sur l'offre du jour
