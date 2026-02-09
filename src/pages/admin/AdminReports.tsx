@@ -52,7 +52,7 @@ const AdminReports = () => {
     queryFn: async () => {
       let query = supabase
         .from("reports")
-        .select("*, restaurants(name), profiles:user_id(email, full_name)")
+        .select("*, restaurants(name)")
         .order("created_at", { ascending: false })
         .limit(200);
 
@@ -61,7 +61,19 @@ const AdminReports = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as any[];
+
+      const reports = data as any[];
+      if (reports.length === 0) return reports;
+
+      // Fetch profiles separately
+      const userIds = [...new Set(reports.map((r) => r.user_id))];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, email, full_name")
+        .in("user_id", userIds);
+
+      const profileMap = new Map((profiles ?? []).map((p) => [p.user_id, p]));
+      return reports.map((r) => ({ ...r, profiles: profileMap.get(r.user_id) ?? null }));
     },
   });
 
