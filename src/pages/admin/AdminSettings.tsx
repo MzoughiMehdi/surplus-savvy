@@ -1,16 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Settings, Euro, CheckCircle, Clock, Loader2, Wrench } from "lucide-react";
+import { Settings, Loader2, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { formatDistanceToNow } from "date-fns";
-import { fr } from "date-fns/locale";
 
 const AdminSettings = () => {
   const queryClient = useQueryClient();
@@ -27,19 +24,6 @@ const AdminSettings = () => {
         .single();
       if (error) throw error;
       return data;
-    },
-  });
-
-  const { data: payouts, isLoading: loadingPayouts } = useQuery({
-    queryKey: ["restaurant-payouts"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("restaurant_payouts")
-        .select("*, restaurants(name)")
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return data as any[];
     },
   });
 
@@ -97,20 +81,6 @@ const AdminSettings = () => {
       toast.success("Message de maintenance mis à jour");
     },
     onError: () => toast.error("Erreur lors de la mise à jour"),
-  });
-
-  const markPaid = useMutation({
-    mutationFn: async (payoutId: string) => {
-      const { error } = await supabase
-        .from("restaurant_payouts")
-        .update({ status: "paid" })
-        .eq("id", payoutId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["restaurant-payouts"] });
-      toast.success("Paiement marqué comme effectué");
-    },
   });
 
   const currentRate = rateValue ?? settings?.commission_rate ?? 50;
@@ -212,58 +182,6 @@ const AdminSettings = () => {
             </Button>
           )}
         </div>
-      </div>
-
-      {/* Payouts List */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Euro className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-bold text-foreground">Historique des paiements</h2>
-        </div>
-
-        {loadingPayouts ? (
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        ) : !payouts || payouts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aucun paiement enregistré</p>
-        ) : (
-          <div className="space-y-3">
-            {payouts.map((p: any) => (
-              <div key={p.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-foreground truncate">
-                    {p.restaurants?.name ?? "Restaurant"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(new Date(p.created_at), { addSuffix: true, locale: fr })}
-                    {" · "}Commission {p.commission_rate}%
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-foreground">{Number(p.total_amount).toFixed(2)}€</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Plateforme: {Number(p.platform_amount).toFixed(2)}€ · Restaurant: {Number(p.restaurant_amount).toFixed(2)}€
-                    </p>
-                  </div>
-                  {p.status === "pending" ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => markPaid.mutate(p.id)}
-                      disabled={markPaid.isPending}
-                    >
-                      <Clock className="mr-1 h-3 w-3" /> Marquer payé
-                    </Button>
-                  ) : (
-                    <Badge variant="secondary" className="text-[10px]">
-                      <CheckCircle className="mr-1 h-3 w-3" /> Payé
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
