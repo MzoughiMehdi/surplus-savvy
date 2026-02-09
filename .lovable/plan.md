@@ -1,43 +1,31 @@
 
 
-# Ameliorer l'affichage des cartes d'offres sur la page d'accueil
+# Ajouter la connexion Google et Apple pour les consommateurs
 
-## Ameliorations prevues
+## Reponse a votre question : compatibilite app native
 
-### 1. Paniers restants - Affichage plus visible
-Remplacer la barre de progression actuelle par un badge colore plus lisible :
-- Badge avec icone panier et texte "X paniers restants"
-- Couleur dynamique : vert (3+), orange (2), rouge (1) pour creer un sentiment d'urgence
-- Suppression de la barre de progression peu lisible
+Oui, la connexion Google et Apple continuera de fonctionner si vous passez en app native (App Store / Play Store). Le flux OAuth ouvre une page web pour l'authentification puis redirige vers l'app. Quand vous passerez en mode natif avec Capacitor, il faudra simplement configurer le "deep linking" pour que la redirection revienne vers l'app au lieu du navigateur. Le code cote Lovable restera identique.
 
-### 2. Distance en km entre vous et le restaurant
-- Creer un hook `useUserLocation` qui recupere la position GPS de l'utilisateur via `navigator.geolocation`
-- Calculer la distance a vol d'oiseau (formule Haversine) entre la position de l'utilisateur et les coordonnees du restaurant (deja disponibles dans les donnees)
-- Afficher un badge avec l'icone MapPin et la distance en km (ex: "1.2 km") sur chaque carte d'offre
+## Ce que ca fait
 
-### 3. Creneau de recuperation - Affichage ameliore
-Remplacer le simple texte "14:00 - 16:00" par un affichage plus attractif :
-- Badge avec fond colore et icone horloge
-- Format "Recuperation : 14h00 - 16h00" plus lisible
-- Si le creneau est dans moins d'1h, afficher "Dans Xmin" en surbrillance pour creer de l'urgence
+Les utilisateurs pourront se connecter ou s'inscrire en un seul clic via leur compte Google ou Apple, en plus du formulaire email/mot de passe existant. Ces boutons apparaitront uniquement sur les ecrans "connexion" et "inscription consommateur" (pas pour les marchands).
 
 ## Modifications techniques
 
-### Fichier 1 : `src/hooks/useUserLocation.ts` (nouveau)
-- Hook qui utilise `navigator.geolocation.getCurrentPosition`
-- Retourne `{ latitude, longitude, loading, error }`
-- Fonction utilitaire `getDistanceKm(lat1, lon1, lat2, lon2)` avec la formule Haversine
+### Etape 1 : Configurer les providers Google et Apple
+- Utiliser l'outil de configuration d'authentification sociale pour generer le module necessaire (cree automatiquement `src/integrations/lovable/`)
 
-### Fichier 2 : `src/components/OfferCard.tsx`
-- Ajouter une prop optionnelle `distanceKm?: number`
-- Remplacer la barre de progression des paniers par un badge colore avec icone
-- Ameliorer l'affichage du creneau horaire avec un style de badge
-- Ajouter l'affichage de la distance si disponible (badge MapPin)
+### Etape 2 : Modifier `src/pages/AuthPage.tsx`
+- Importer le module `lovable` depuis `@/integrations/lovable`
+- Ajouter deux boutons sociaux avec icones :
+  - "Continuer avec Google"
+  - "Continuer avec Apple"
+- Ces boutons appellent `lovable.auth.signInWithOAuth("google", ...)` et `lovable.auth.signInWithOAuth("apple", ...)`
+- Afficher uniquement sur les modes "login" et "signup" (pas "merchant-signup" ni "forgot-password")
+- Ajouter un separateur visuel "ou" entre les boutons sociaux et le formulaire email
+- Gestion des erreurs avec notification en cas d'echec
 
-### Fichier 3 : `src/pages/Index.tsx`
-- Importer et utiliser `useUserLocation`
-- Calculer la distance pour chaque offre et la passer en prop a `OfferCard`
-
-### Fichier 4 : `src/pages/ExplorePage.tsx`
-- Meme integration de la distance que dans Index.tsx
+### Etape 3 : Verification du profil automatique
+- Le trigger existant `handle_new_user` cree deja automatiquement un profil avec le `full_name` des metadonnees, donc les utilisateurs qui se connectent via Google/Apple auront leur profil cree automatiquement
+- Le role par defaut sera "consumer" car seul le formulaire classique permet l'inscription marchand
 
