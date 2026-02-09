@@ -49,7 +49,7 @@ const AdminReservations = () => {
     queryFn: async () => {
       let query = supabase
         .from("reservations")
-        .select("*, restaurants(name), offers(title), profiles:user_id(email, full_name)")
+        .select("*, restaurants(name), offers(title)")
         .order("created_at", { ascending: false })
         .limit(200);
 
@@ -60,7 +60,21 @@ const AdminReservations = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as any[];
+
+      const reservations = data as any[];
+      if (reservations.length === 0) return reservations;
+
+      const userIds = [...new Set(reservations.map((r) => r.user_id))];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, email, full_name")
+        .in("user_id", userIds);
+
+      const profileMap = new Map((profiles ?? []).map((p) => [p.user_id, p]));
+      return reservations.map((r) => ({
+        ...r,
+        profiles: profileMap.get(r.user_id) ?? null,
+      }));
     },
   });
 
