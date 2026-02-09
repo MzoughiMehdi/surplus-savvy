@@ -2,10 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useFavorites } from "@/hooks/useFavorites";
-import { Clock, QrCode, Package, Heart } from "lucide-react";
+import { Clock, QrCode, Package, Heart, ShoppingBag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import ReservationConfirmation from "@/components/ReservationConfirmation";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -29,6 +30,7 @@ interface Reservation {
 
 const OrdersPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { isFavorite, toggleFavorite } = useFavorites();
   const [selected, setSelected] = useState<Reservation | null>(null);
 
@@ -79,7 +81,22 @@ const OrdersPage = () => {
         <p className="text-sm text-muted-foreground">{reservations.length} réservation{reservations.length > 1 ? "s" : ""}</p>
       </div>
 
-      {isLoading ? (
+      {!user ? (
+        <div className="flex flex-col items-center justify-center px-5 pt-24 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary">
+            <ShoppingBag className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <p className="mt-4 font-display text-lg font-semibold text-foreground">
+            Connectez-vous pour voir vos commandes
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Créez un compte pour suivre vos réservations
+          </p>
+          <button onClick={() => navigate("/auth")} className="mt-4 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground">
+            Se connecter
+          </button>
+        </div>
+      ) : isLoading ? (
         <p className="px-5 text-muted-foreground">Chargement...</p>
       ) : reservations.length === 0 ? (
         <div className="px-5 py-12 text-center">
