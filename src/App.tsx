@@ -19,6 +19,8 @@ import AdminRestaurantDetail from "./pages/admin/AdminRestaurantDetail";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 import AdminPayouts from "./pages/admin/AdminPayouts";
 import AdminSettings from "./pages/admin/AdminSettings";
+import AdminReservations from "./pages/admin/AdminReservations";
+import AdminReports from "./pages/admin/AdminReports";
 import CheckoutPage from "./pages/CheckoutPage";
 import CheckoutReturnPage from "./pages/CheckoutReturnPage";
 
@@ -37,7 +39,9 @@ const AppRoutes = () => {
         <Route index element={<AdminDashboard />} />
         <Route path="restaurants" element={<AdminRestaurants />} />
         <Route path="restaurants/:id" element={<AdminRestaurantDetail />} />
+        <Route path="reservations" element={<AdminReservations />} />
         <Route path="payouts" element={<AdminPayouts />} />
+        <Route path="reports" element={<AdminReports />} />
         <Route path="analytics" element={<AdminAnalytics />} />
         <Route path="settings" element={<AdminSettings />} />
       </Route>

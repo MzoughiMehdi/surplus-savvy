@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import { useEffect } from "react";
-import { LayoutDashboard, Store, BarChart3, Shield, LogOut, Settings, Euro } from "lucide-react";
+import { LayoutDashboard, Store, BarChart3, Shield, LogOut, Settings, Euro, ClipboardList, Flag } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import NotificationBell from "@/components/NotificationBell";
 import {
@@ -20,7 +20,9 @@ import {
 const navItems = [
   { title: "Vue d'ensemble", url: "/admin", icon: LayoutDashboard },
   { title: "Restaurants", url: "/admin/restaurants", icon: Store },
+  { title: "Réservations", url: "/admin/reservations", icon: ClipboardList },
   { title: "Paiements", url: "/admin/payouts", icon: Euro },
+  { title: "Signalements", url: "/admin/reports", icon: Flag },
   { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
   { title: "Paramètres", url: "/admin/settings", icon: Settings },
 ];
