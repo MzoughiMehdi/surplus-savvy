@@ -1,9 +1,17 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { ArrowLeft, Clock, MapPin, CheckCircle, XCircle, Package, Loader2 } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, CheckCircle, XCircle, Package, Loader2, Flag, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import StarRating from "@/components/StarRating";
 import { useSubmitReview, useUserReviewForReservation } from "@/hooks/useReviews";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface ReservationConfirmationProps {
   pickupCode: string;
@@ -39,6 +47,64 @@ const ReservationConfirmation = ({
   const { submitReview, submitting } = useSubmitReview();
   const { review, loading: reviewLoading, setReview } = useUserReviewForReservation(reservationId);
   const [pending, setPending] = useState({ quality: 0, quantity: 0, presentation: 0 });
+  const { user } = useAuth();
+
+  // Report state
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportMessage, setReportMessage] = useState("");
+  const [reportImage, setReportImage] = useState<File | null>(null);
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: existingReport, refetch: refetchReport } = useQuery({
+    queryKey: ["user-report", reservationId],
+    queryFn: async () => {
+      if (!reservationId || !user) return null;
+      const { data } = await supabase
+        .from("reports")
+        .select("id")
+        .eq("reservation_id", reservationId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!reservationId && !!user,
+  });
+
+  const handleSubmitReport = async () => {
+    if (!reservationId || !restaurantId || !user || !reportMessage.trim()) return;
+    setReportSubmitting(true);
+    try {
+      let imageUrl: string | null = null;
+      if (reportImage) {
+        const ext = reportImage.name.split(".").pop();
+        const path = `${user.id}/${reservationId}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("report-images")
+          .upload(path, reportImage, { upsert: true });
+        if (uploadError) throw uploadError;
+        const { data: urlData } = supabase.storage.from("report-images").getPublicUrl(path);
+        imageUrl = urlData.publicUrl;
+      }
+      const { error } = await supabase.from("reports").insert({
+        user_id: user.id,
+        reservation_id: reservationId,
+        restaurant_id: restaurantId,
+        message: reportMessage.trim(),
+        image_url: imageUrl,
+      });
+      if (error) throw error;
+      toast.success("Signalement envoyé");
+      setReportOpen(false);
+      setReportMessage("");
+      setReportImage(null);
+      refetchReport();
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors de l'envoi");
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
 
   const qrValue = JSON.stringify({ code: pickupCode, restaurant: restaurantName, offer: offerTitle });
 
@@ -161,6 +227,57 @@ const ReservationConfirmation = ({
                 </Button>
               )}
             </>
+          )}
+        </div>
+      )}
+
+      {/* Report button */}
+      {reservationId && restaurantId && status !== "cancelled" && (
+        <div className="mt-6">
+          {existingReport ? (
+            <p className="text-center text-sm text-muted-foreground">✅ Signalement envoyé</p>
+          ) : (
+            <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-full gap-2">
+                  <Flag className="h-4 w-4" /> Signaler un problème
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Signaler un problème</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <Textarea
+                    placeholder="Décrivez le problème rencontré..."
+                    value={reportMessage}
+                    onChange={(e) => setReportMessage(e.target.value)}
+                    rows={4}
+                  />
+                  <div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => setReportImage(e.target.files?.[0] || null)}
+                    />
+                    <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="gap-2">
+                      <ImagePlus className="h-4 w-4" />
+                      {reportImage ? reportImage.name : "Ajouter une photo"}
+                    </Button>
+                  </div>
+                  <Button
+                    onClick={handleSubmitReport}
+                    disabled={reportSubmitting || !reportMessage.trim()}
+                    className="w-full"
+                  >
+                    {reportSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Envoyer le signalement
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           )}
         </div>
       )}
