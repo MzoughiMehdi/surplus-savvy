@@ -29,7 +29,7 @@ export const useOffers = () => {
 
     const { data, error } = await supabase
       .from("offers")
-      .select("*, restaurants(name, image_url, address)")
+      .select("*, restaurants(name, image_url, address, postal_code, city)")
       .eq("is_active", true)
       .gt("items_left", 0)
       .eq("date", today)
@@ -46,7 +46,7 @@ export const useOffers = () => {
       restaurantId: o.restaurant_id,
       restaurantName: o.restaurants?.name ?? "Restaurant",
       restaurantImage: o.restaurants?.image_url ?? "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=100&h=100&fit=crop",
-      restaurantAddress: o.restaurants?.address ?? "",
+      restaurantAddress: [o.restaurants?.address, [o.restaurants?.postal_code, o.restaurants?.city].filter(Boolean).join(" ")].filter(Boolean).join(", "),
       category: o.category ?? "meals",
       title: o.title,
       description: o.description ?? "",
