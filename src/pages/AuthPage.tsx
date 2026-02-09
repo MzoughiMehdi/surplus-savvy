@@ -10,7 +10,7 @@ type Mode = "login" | "signup" | "merchant-signup" | "forgot-password";
 
 const AuthPage = () => {
   const navigate = useNavigate();
-  const { user, profile, loading, isAdmin, signOut } = useAuth();
+  const { user, profile, loading, profileLoading, isAdmin, signOut } = useAuth();
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,7 +23,7 @@ const AuthPage = () => {
 
   // Auto-redirect when OAuth session is detected
   useEffect(() => {
-    if (!loading && user && !hasRedirected.current) {
+    if (!loading && !profileLoading && user && !hasRedirected.current) {
       if (redirectParam === "admin") {
         if (isAdmin) {
           hasRedirected.current = true;
