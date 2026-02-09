@@ -28,7 +28,7 @@ const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
         .from("reservations")
         .select("id, offer_id, offers(discounted_price, original_price)")
         .eq("user_id", user!.id)
-        .in("status", ["confirmed", "completed"]);
+        .in("status", ["confirmed", "accepted", "completed"]);
 
       const mealsSaved = reservations?.length ?? 0;
       const eurosSaved = reservations?.reduce((sum, r) => {
@@ -129,6 +129,7 @@ const ProfilePage = ({ onNavigate }: ProfilePageProps) => {
                 <button key={item.label}
                   onClick={() => {
                     if (item.label === "Mes commandes" && onNavigate) onNavigate("orders");
+                    if (item.label === "Mon impact" && onNavigate) onNavigate("orders");
                   }}
                   className={`flex w-full items-center gap-3 px-4 py-4 text-left transition-colors hover:bg-secondary/50 active:bg-secondary ${
                     i !== menuItems.length - 1 ? "border-b border-border" : ""

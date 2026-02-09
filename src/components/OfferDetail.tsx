@@ -56,7 +56,7 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
   }, [coords]);
 
   const handleReserve = () => {
-    if (!user) { toast.error("Connectez-vous pour réserver"); return; }
+    if (!user) { toast.error("Connectez-vous pour réserver"); navigate("/auth"); return; }
     if (offer.itemsLeft <= 0) { toast.error("Cette offre n'est plus disponible"); return; }
     const params = new URLSearchParams({
       offerId: offer.id,
@@ -146,7 +146,7 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
             Créneau de retrait
           </div>
           <p className="mt-1 text-lg font-bold text-primary">
-            Aujourd'hui, {offer.pickupStart} – {offer.pickupEnd}
+            {offer.pickupStart} – {offer.pickupEnd}
           </p>
         </div>
 

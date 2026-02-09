@@ -1,6 +1,7 @@
 import { Heart, Loader2 } from "lucide-react";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -16,6 +17,7 @@ interface FavRestaurant {
 
 const FavoritesPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { favoriteIds, toggleFavorite, loading: favLoading } = useFavorites();
 
   const { data: favRestaurants = [], isLoading } = useQuery({
@@ -43,7 +45,22 @@ const FavoritesPage = () => {
         </p>
       </div>
 
-      {loading ? (
+      {!user ? (
+        <div className="flex flex-col items-center justify-center px-5 pt-24 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary">
+            <Heart className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <p className="mt-4 font-display text-lg font-semibold text-foreground">
+            Connectez-vous pour voir vos favoris
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Créez un compte pour sauvegarder vos restaurants préférés
+          </p>
+          <button onClick={() => navigate("/auth")} className="mt-4 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground">
+            Se connecter
+          </button>
+        </div>
+      ) : loading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>

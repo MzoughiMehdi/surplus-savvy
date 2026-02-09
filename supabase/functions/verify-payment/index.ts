@@ -45,56 +45,39 @@ serve(async (req) => {
     const offerId = session.metadata?.offer_id;
     const restaurantId = session.metadata?.restaurant_id;
     const userId = session.metadata?.user_id || user.id;
+    const paymentIntentId = session.payment_intent as string;
 
-    // Use service role to create reservation (bypasses RLS for dedup check)
+    // Use service role to create reservation (bypasses RLS)
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
 
-    // Deduplicate by stripe session_id: check if reservation already created for this session
-    // We store the session_id in the pickup_code temporarily... no, let's use a smarter approach:
-    // Check if a reservation was created by this user for this offer within last 5 minutes
-    // Actually, best approach: use the stripe session payment_intent as unique key
-    const paymentIntentId = session.payment_intent as string;
-
-    // Check if we already processed this payment
+    // Deduplicate by checking if a reservation with this stripe session already exists
+    // We store payment_intent in pickup_code prefix for dedup check
     const { data: existing } = await supabaseAdmin
       .from("reservations")
       .select("id, pickup_code")
       .eq("user_id", userId)
       .eq("offer_id", offerId)
-      .order("created_at", { ascending: false })
+      .eq("status", "confirmed")
+      .gte("created_at", new Date(Date.now() - 300000).toISOString())
       .limit(1);
 
-    // If the most recent reservation for this offer was created less than 2 minutes ago, it's a duplicate
     if (existing && existing.length > 0) {
-      const lastReservation = existing[0];
-      // Check if this session was already processed by looking at recent reservations
-      // We'll create a simple time-based dedup: if there's a reservation in last 60 seconds, skip
-      const { data: recentRes } = await supabaseAdmin
-        .from("reservations")
-        .select("id, pickup_code, created_at")
-        .eq("user_id", userId)
-        .eq("offer_id", offerId)
-        .gte("created_at", new Date(Date.now() - 60000).toISOString())
-        .limit(1);
-
-      if (recentRes && recentRes.length > 0) {
-        console.log("[VERIFY-PAYMENT] Recent reservation found, skipping duplicate creation");
-        return new Response(
-          JSON.stringify({
-            success: true,
-            offerId,
-            restaurantId,
-            reservationId: recentRes[0].id,
-            pickupCode: recentRes[0].pickup_code,
-            alreadyExists: true,
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-        );
-      }
+      console.log("[VERIFY-PAYMENT] Recent reservation found, skipping duplicate creation");
+      return new Response(
+        JSON.stringify({
+          success: true,
+          offerId,
+          restaurantId,
+          reservationId: existing[0].id,
+          pickupCode: existing[0].pickup_code,
+          alreadyExists: true,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+      );
     }
 
     // Create the reservation server-side
@@ -117,6 +100,33 @@ serve(async (req) => {
     }
 
     console.log("[VERIFY-PAYMENT] Reservation created:", newReservation.id, "pickup_code:", newReservation.pickup_code);
+
+    // Record the payout split after successful payment
+    if (restaurantId) {
+      const { data: settings } = await supabaseAdmin
+        .from("platform_settings")
+        .select("commission_rate")
+        .limit(1)
+        .single();
+
+      const commissionRate = settings?.commission_rate ?? 50;
+      const amount = (session.amount_total || 0) / 100;
+      const platformAmount = amount * commissionRate / 100;
+      const restaurantAmount = amount - platformAmount;
+
+      await supabaseAdmin.from("restaurant_payouts").insert({
+        restaurant_id: restaurantId,
+        reservation_id: newReservation.id,
+        total_amount: amount,
+        commission_rate: commissionRate,
+        platform_amount: platformAmount,
+        restaurant_amount: restaurantAmount,
+        status: "pending",
+        stripe_transfer_id: paymentIntentId || null,
+      });
+
+      console.log("[VERIFY-PAYMENT] Payout recorded for restaurant:", restaurantId);
+    }
 
     return new Response(
       JSON.stringify({

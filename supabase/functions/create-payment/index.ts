@@ -109,21 +109,7 @@ serve(async (req) => {
 
     const session = await stripe.checkout.sessions.create(sessionParams);
 
-    // Record the payout split
-    if (restaurantId) {
-      const restaurantAmount = amount - (amount * commissionRate / 100);
-      const platformAmount = amount * commissionRate / 100;
-
-      await supabaseAdmin.from("restaurant_payouts").insert({
-        restaurant_id: restaurantId,
-        total_amount: amount,
-        commission_rate: commissionRate,
-        platform_amount: platformAmount,
-        restaurant_amount: restaurantAmount,
-        status: stripeAccountId ? "paid" : "pending",
-        stripe_transfer_id: null,
-      });
-    }
+    // Payout recording moved to verify-payment after successful payment confirmation
 
     console.log("[CREATE-PAYMENT] Session created for offer:", offerId);
 
