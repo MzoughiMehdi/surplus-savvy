@@ -19,24 +19,18 @@ const getStockColor = (itemsLeft: number) => {
 
 const formatPickupTime = (time: string) => time.replace(":", "h");
 
-const getUrgencyInfo = (pickupStart: string, pickupEnd: string): { type: "starting" | "ending"; minutes: number } | null => {
+const getUrgencyMinutes = (pickupStart: string, pickupEnd: string): number | null => {
   const now = new Date();
-  const [sh, sm] = pickupStart.split(":").map(Number);
   const [eh, em] = pickupEnd.split(":").map(Number);
-  const start = new Date();
-  start.setHours(sh, sm, 0, 0);
   const end = new Date();
   end.setHours(eh, em, 0, 0);
+  const [sh, sm] = pickupStart.split(":").map(Number);
+  const start = new Date();
+  start.setHours(sh, sm, 0, 0);
 
   if (now >= start && now < end) {
     const remaining = Math.round((end.getTime() - now.getTime()) / 60000);
-    if (remaining <= 60) return { type: "ending", minutes: remaining };
-    return null;
-  }
-
-  if (now < start) {
-    const until = Math.round((start.getTime() - now.getTime()) / 60000);
-    if (until <= 60) return { type: "starting", minutes: until };
+    if (remaining <= 60) return remaining;
   }
 
   return null;
@@ -46,7 +40,7 @@ const OfferCard = ({ offer, onClick, index, dynamicRating, distanceKm, isFavorit
   const discount = Math.round((1 - offer.discountedPrice / offer.originalPrice) * 100);
   const rating = dynamicRating?.avg ?? 0;
   const reviewCount = dynamicRating?.count ?? 0;
-  const urgency = getUrgencyInfo(offer.pickupStart, offer.pickupEnd);
+  const urgencyMinutes = getUrgencyMinutes(offer.pickupStart, offer.pickupEnd);
 
   const handleFavorite = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -120,18 +114,11 @@ const OfferCard = ({ offer, onClick, index, dynamicRating, distanceKm, isFavorit
           <div className="mt-3 flex items-center justify-between">
             {/* Pickup slot badge */}
             <div className="flex items-center gap-1.5">
-            {urgency?.type === "ending" ? (
+            {urgencyMinutes != null ? (
                 <div className="flex items-center gap-1 rounded-lg bg-destructive/15 px-2.5 py-1">
                   <Clock className="h-3.5 w-3.5 text-destructive" />
                   <span className="text-xs font-bold text-destructive">
-                    Encore {urgency.minutes}min
-                  </span>
-                </div>
-              ) : urgency?.type === "starting" ? (
-                <div className="flex items-center gap-1 rounded-lg bg-accent/15 px-2.5 py-1">
-                  <Clock className="h-3.5 w-3.5 text-accent-foreground" />
-                  <span className="text-xs font-bold text-accent-foreground">
-                    Dans {urgency.minutes}min
+                    Dernier retrait dans {urgencyMinutes} minute{urgencyMinutes > 1 ? "s" : ""}
                   </span>
                 </div>
               ) : (
