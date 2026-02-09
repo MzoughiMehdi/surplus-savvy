@@ -13,7 +13,7 @@ const WelcomePage = () => {
     if (!loading && user) {
       navigate("/home", { replace: true });
     }
-    if (localStorage.getItem("guest_mode") === "true") {
+    if (sessionStorage.getItem("guest_mode") === "true") {
       navigate("/home", { replace: true });
     }
   }, [user, loading, navigate]);
@@ -68,7 +68,7 @@ const WelcomePage = () => {
 
           <button
             onClick={() => {
-              localStorage.setItem("guest_mode", "true");
+              sessionStorage.setItem("guest_mode", "true");
               navigate("/home");
             }}
             className="flex w-full items-center justify-center gap-2 py-3 text-sm font-medium text-white/70 transition-colors hover:text-white"
