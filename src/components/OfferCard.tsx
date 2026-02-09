@@ -1,4 +1,4 @@
-import { Clock, Star } from "lucide-react";
+import { Clock, Star, ShoppingBag, MapPin } from "lucide-react";
 import type { Offer } from "@/hooks/useOffers";
 
 interface OfferCardProps {
@@ -6,12 +6,32 @@ interface OfferCardProps {
   onClick: (offer: Offer) => void;
   index: number;
   dynamicRating?: { avg: number; count: number };
+  distanceKm?: number;
 }
 
-const OfferCard = ({ offer, onClick, index, dynamicRating }: OfferCardProps) => {
+const getStockColor = (itemsLeft: number) => {
+  if (itemsLeft >= 3) return "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400";
+  if (itemsLeft === 2) return "bg-amber-500/15 text-amber-700 dark:text-amber-400";
+  return "bg-red-500/15 text-red-700 dark:text-red-400";
+};
+
+const formatPickupTime = (time: string) => time.replace(":", "h");
+
+const getUrgencyInfo = (pickupStart: string) => {
+  const now = new Date();
+  const [h, m] = pickupStart.split(":").map(Number);
+  const start = new Date();
+  start.setHours(h, m, 0, 0);
+  const diffMin = Math.round((start.getTime() - now.getTime()) / 60000);
+  if (diffMin > 0 && diffMin <= 60) return diffMin;
+  return null;
+};
+
+const OfferCard = ({ offer, onClick, index, dynamicRating, distanceKm }: OfferCardProps) => {
   const discount = Math.round((1 - offer.discountedPrice / offer.originalPrice) * 100);
   const rating = dynamicRating?.avg ?? 0;
   const reviewCount = dynamicRating?.count ?? 0;
+  const urgencyMin = getUrgencyInfo(offer.pickupStart);
 
   return (
     <button
@@ -29,8 +49,16 @@ const OfferCard = ({ offer, onClick, index, dynamicRating }: OfferCardProps) => 
           />
           <div className="absolute inset-0 bg-gradient-to-t from-foreground/40 via-transparent to-transparent" />
 
-          <div className="absolute left-3 top-3 rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-lg">
-            -{discount}%
+          <div className="absolute left-3 top-3 flex items-center gap-2">
+            <div className="rounded-xl bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground shadow-lg">
+              -{discount}%
+            </div>
+            {distanceKm != null && (
+              <div className="flex items-center gap-1 rounded-xl bg-card/90 px-2.5 py-1.5 text-xs font-semibold text-foreground backdrop-blur-sm shadow">
+                <MapPin className="h-3 w-3 text-primary" />
+                {distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m` : `${distanceKm.toFixed(1)} km`}
+              </div>
+            )}
           </div>
 
           <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
@@ -58,12 +86,26 @@ const OfferCard = ({ offer, onClick, index, dynamicRating }: OfferCardProps) => 
           </h3>
 
           <div className="mt-3 flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" />
-              <span className="text-xs">
-                {offer.pickupStart} – {offer.pickupEnd}
-              </span>
+            {/* Pickup slot badge */}
+            <div className="flex items-center gap-1.5">
+              {urgencyMin ? (
+                <div className="flex items-center gap-1 rounded-lg bg-red-500/15 px-2.5 py-1">
+                  <Clock className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
+                  <span className="text-xs font-bold text-red-700 dark:text-red-400">
+                    Dans {urgencyMin}min
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1">
+                  <Clock className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs font-medium text-primary">
+                    {formatPickupTime(offer.pickupStart)} – {formatPickupTime(offer.pickupEnd)}
+                  </span>
+                </div>
+              )}
             </div>
+
+            {/* Price */}
             <div className="flex items-baseline gap-2">
               <span className="text-xs text-muted-foreground line-through">
                 €{offer.originalPrice.toFixed(2)}
@@ -74,16 +116,14 @@ const OfferCard = ({ offer, onClick, index, dynamicRating }: OfferCardProps) => 
             </div>
           </div>
 
-          <div className="mt-2 flex items-center gap-1.5">
-            <div className="h-1.5 flex-1 rounded-full bg-secondary">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-primary to-accent transition-all"
-                style={{ width: `${Math.max(15, (offer.itemsLeft / 5) * 100)}%` }}
-              />
+          {/* Stock badge */}
+          <div className="mt-2.5 flex items-center">
+            <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 ${getStockColor(offer.itemsLeft)}`}>
+              <ShoppingBag className="h-3.5 w-3.5" />
+              <span className="text-xs font-bold">
+                {offer.itemsLeft} panier{offer.itemsLeft > 1 ? "s" : ""} restant{offer.itemsLeft > 1 ? "s" : ""}
+              </span>
             </div>
-            <span className="text-[10px] font-semibold text-muted-foreground">
-              {offer.itemsLeft} restant{offer.itemsLeft > 1 ? "s" : ""}
-            </span>
           </div>
         </div>
       </div>
