@@ -37,7 +37,7 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
       doubleClickZoom: false,
       attributionControl: false,
     });
-    L.tileLayer("https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png").addTo(map);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png").addTo(map);
     L.marker(coords, {
       icon: L.divIcon({
         className: "",
