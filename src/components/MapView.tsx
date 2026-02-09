@@ -51,19 +51,19 @@ const MapView = ({ offers, onBack, onSelectOffer }: MapViewProps) => {
   const [geocodedOffers, setGeocodedOffers] = useState<GeocodedOffer[]>([]);
   const defaultCenter: [number, number] = [48.8566, 2.3522];
 
-  // Geocode all offers on mount
+  // Geocode all offers in parallel with progressive updates
   useEffect(() => {
     let cancelled = false;
     const geocodeAll = async () => {
-      const results: GeocodedOffer[] = [];
-      for (const offer of offers) {
+      const promises = offers.map(async (offer) => {
         const coords = await geocodeAddress(offer.restaurantAddress);
         if (coords && !cancelled) {
-          results.push({ ...offer, lat: coords.lat, lng: coords.lng });
+          setGeocodedOffers((prev) => [...prev, { ...offer, lat: coords.lat, lng: coords.lng }]);
         }
-      }
-      if (!cancelled) setGeocodedOffers(results);
+      });
+      await Promise.all(promises);
     };
+    setGeocodedOffers([]);
     geocodeAll();
     return () => { cancelled = true; };
   }, [offers]);
@@ -109,8 +109,8 @@ const MapView = ({ offers, onBack, onSelectOffer }: MapViewProps) => {
         zoom: 13,
         zoomControl: false,
       });
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
       }).addTo(map);
       mapRef.current = map;
       flyToUser();
