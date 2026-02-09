@@ -5,6 +5,7 @@ import OfferCard from "@/components/OfferCard";
 import OfferDetail from "@/components/OfferDetail";
 import type { Offer } from "@/hooks/useOffers";
 import { useAllRestaurantRatings } from "@/hooks/useAllRestaurantRatings";
+import { useUserLocation, getDistanceKm } from "@/hooks/useUserLocation";
 
 interface ExplorePageProps {
   offers: Offer[];
@@ -17,6 +18,12 @@ const ExplorePage = ({ offers, loadingOffers }: ExplorePageProps) => {
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [sortBy, setSortBy] = useState<"price" | "rating">("price");
   const { ratings } = useAllRestaurantRatings();
+  const userLocation = useUserLocation();
+
+  const getOfferDistance = (offer: Offer) => {
+    if (!userLocation.latitude || !userLocation.longitude || !offer.latitude || !offer.longitude) return undefined;
+    return getDistanceKm(userLocation.latitude, userLocation.longitude, offer.latitude, offer.longitude);
+  };
 
   const filteredOffers = useMemo(() => {
     let results = selectedCategory === "all"
@@ -95,7 +102,7 @@ const ExplorePage = ({ offers, loadingOffers }: ExplorePageProps) => {
         ) : (
           <div className="grid gap-4">
             {filteredOffers.map((offer, i) => (
-              <OfferCard key={offer.id} offer={offer} onClick={setSelectedOffer} index={i} dynamicRating={ratings[offer.restaurantName]} />
+              <OfferCard key={offer.id} offer={offer} onClick={setSelectedOffer} index={i} dynamicRating={ratings[offer.restaurantName]} distanceKm={getOfferDistance(offer)} />
             ))}
             {filteredOffers.length === 0 && (
               <div className="py-12 text-center">

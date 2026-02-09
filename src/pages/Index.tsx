@@ -14,6 +14,7 @@ import ProfilePage from "@/pages/ProfilePage";
 import OrdersPage from "@/pages/OrdersPage";
 import { useOffers, type Offer } from "@/hooks/useOffers";
 import { useAllRestaurantRatings } from "@/hooks/useAllRestaurantRatings";
+import { useUserLocation, getDistanceKm } from "@/hooks/useUserLocation";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -29,6 +30,12 @@ const Index = () => {
   const { offers, loading, refetch } = useOffers();
   const { ratings } = useAllRestaurantRatings();
   const { user, profile } = useAuth();
+  const userLocation = useUserLocation();
+
+  const getOfferDistance = (offer: Offer) => {
+    if (!userLocation.latitude || !userLocation.longitude || !offer.latitude || !offer.longitude) return undefined;
+    return getDistanceKm(userLocation.latitude, userLocation.longitude, offer.latitude, offer.longitude);
+  };
 
   // Redirect merchants to their dashboard
   useEffect(() => {
@@ -116,6 +123,7 @@ const Index = () => {
                       onClick={setSelectedOffer}
                       index={i}
                       dynamicRating={ratings[offer.restaurantName]}
+                      distanceKm={getOfferDistance(offer)}
                     />
                   ))}
                 </div>
