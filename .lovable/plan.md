@@ -1,56 +1,40 @@
 
-
-# Correction de l'onglet Reservations admin
+# Simplification des messages d'urgence sur les cartes d'offres
 
 ## Probleme
 
-Le meme probleme que pour les Signalements : la requete utilise `profiles:user_id(email, full_name)` mais PostgREST ne peut pas resoudre cette jointure car il n'y a pas de FK directe entre `reservations` et `profiles`.
+Actuellement, deux messages differents s'affichent :
+- En rouge : "Encore 5min" (le creneau se termine bientot)
+- En orange : "Dans 5min" (le creneau commence bientot)
 
-Cela provoque une erreur 400, des retries en boucle, et rien ne s'affiche.
+Ces deux messages pretent a confusion car ils se ressemblent mais signifient des choses differentes. De plus, "minutes" n'a pas de "s".
 
 ## Solution
 
-Appliquer la meme approche que pour `AdminReports.tsx` : separer la requete en deux etapes.
+Remplacer les deux messages par un seul message unifie : **"Dernier retrait dans X minutes"**, affiche en rouge dans les deux cas (puisqu'il s'agit d'une urgence).
 
-### Fichier modifie : `src/pages/admin/AdminReservations.tsx`
+### Fichier modifie : `src/components/OfferCard.tsx`
 
-Dans le `queryFn` de la requete `admin-reservations` :
+1. **Supprimer la distinction "starting" / "ending"** dans la fonction `getUrgencyInfo` : retourner simplement le nombre de minutes restantes avant la fin du creneau (pas avant le debut).
+2. **Unifier le badge** : un seul style (rouge) avec le texte "Dernier retrait dans X minutes".
+3. **Corriger le pluriel** : "minute" au singulier si 1, "minutes" sinon.
 
-1. Remplacer `.select("*, restaurants(name), offers(title), profiles:user_id(email, full_name)")` par `.select("*, restaurants(name), offers(title)")`
-2. Extraire les `user_id` uniques des resultats
-3. Faire une seconde requete vers `profiles` pour recuperer `user_id, email, full_name`
-4. Fusionner les donnees avec un `Map` cote client
+### Changements concrets
 
-### Code concret
+Dans `getUrgencyInfo` :
+- Quand le creneau est en cours et qu'il reste moins de 60 min : retourner les minutes restantes
+- Quand le creneau n'a pas encore commence : ne plus afficher d'urgence (le creneau normal s'affiche)
 
-```typescript
-// Etape 1 : reports sans profiles
-const { data, error } = await query;
-if (error) throw error;
-
-const reservations = data as any[];
-if (reservations.length === 0) return reservations;
-
-// Etape 2 : profils a part
-const userIds = [...new Set(reservations.map((r) => r.user_id))];
-const { data: profiles } = await supabase
-  .from("profiles")
-  .select("user_id, email, full_name")
-  .in("user_id", userIds);
-
-const profileMap = new Map((profiles ?? []).map((p) => [p.user_id, p]));
-return reservations.map((r) => ({
-  ...r,
-  profiles: profileMap.get(r.user_id) ?? null,
-}));
+Dans le JSX du badge urgence :
+- Remplacer les deux blocs (rouge "Encore" et orange "Dans") par un seul bloc rouge :
+```
+Dernier retrait dans {minutes} minute{minutes > 1 ? "s" : ""}
 ```
 
 ## Resume
 
-| Fichier | Modification |
-|---|---|
-| `src/pages/admin/AdminReservations.tsx` | Supprimer jointure `profiles:user_id`, fetch profils separement |
-
-## Resultat attendu
-
-Les reservations s'afficheront immediatement avec le nom/email du consommateur, le restaurant, l'offre, la date, le statut et le code retrait.
+| Element | Avant | Apres |
+|---|---|---|
+| Creneau se termine bientot | Rouge "Encore 5min" | Rouge "Dernier retrait dans 5 minutes" |
+| Creneau commence bientot | Orange "Dans 5min" | Supprime (affichage normal du creneau) |
+| Pluriel | Absent | "minute" / "minutes" |
