@@ -207,18 +207,24 @@ export type Database = {
         Row: {
           commission_rate: number
           id: string
+          maintenance_message: string | null
+          maintenance_mode: boolean
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           commission_rate?: number
           id?: string
+          maintenance_message?: string | null
+          maintenance_mode?: boolean
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           commission_rate?: number
           id?: string
+          maintenance_message?: string | null
+          maintenance_mode?: boolean
           updated_at?: string
           updated_by?: string | null
         }

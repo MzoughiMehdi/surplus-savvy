@@ -29,7 +29,24 @@ const AuthPage = () => {
     }
   }, [user, loading, profile, navigate]);
 
+  const searchParams = new URLSearchParams(window.location.search);
+  const redirectParam = searchParams.get("redirect");
+
   const redirectByRole = async (userId: string, fallback: string) => {
+    // Check if admin redirect requested
+    if (redirectParam === "admin") {
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .maybeSingle();
+      if (roleData) {
+        navigate("/admin/settings");
+        return;
+      }
+    }
+
     const { data } = await supabase
       .from("profiles")
       .select("role")
