@@ -192,14 +192,6 @@ const MapView = ({ offers, onBack, onSelectOffer }: MapViewProps) => {
         <Navigation className={`h-5 w-5 text-primary-foreground ${locating ? "animate-pulse" : ""}`} />
       </button>
 
-      <div className="absolute bottom-16 left-4 right-4 z-[1000] rounded-2xl bg-background/95 p-4 shadow-lg backdrop-blur-sm">
-        <p className="text-sm font-semibold text-foreground">
-          📍 {geoOffers.length} offres à proximité
-        </p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          Appuyez sur un marqueur pour voir l'offre
-        </p>
-      </div>
     </div>
   );
 };
