@@ -1,120 +1,51 @@
 
 
-# Onglet Reservations admin, Signalements consommateur et admin
+# Correction de l'onglet Signalements
 
-## 1. Page admin "Reservations" (`/admin/reservations`)
+## Probleme
 
-Creer une nouvelle page `src/pages/admin/AdminReservations.tsx` qui affiche toutes les reservations de la plateforme, avec les memes types de filtres que la page Paiements :
+La requete dans `AdminReports.tsx` utilise des jointures PostgREST (`restaurants(name)`, `profiles:user_id(email, full_name)`) mais la table `reports` n'a **aucune foreign key** definie. PostgREST retourne donc une erreur 400 :
 
-- **Filtre par commercant** : champ texte avec autocompletion (meme composant que Paiements)
-- **Filtre par statut** : Select (Tous / En attente / Acceptee / Retiree / Annulee)
-- **Filtre par date** : date debut et date fin
+```
+Could not find a relationship between 'reports' and 'restaurants'
+```
 
-Tableau avec colonnes : Consommateur (email ou nom), Restaurant, Offre, Date, Statut, Code retrait.
+Cela provoque des tentatives repetees (retry) qui donnent l'impression de lenteur, et aucun signalement ne s'affiche.
 
-### Fichiers concernes
-- **Creer** `src/pages/admin/AdminReservations.tsx`
-- **Modifier** `src/pages/admin/AdminLayout.tsx` : ajouter "Reservations" dans `navItems` (icone `ClipboardList`, url `/admin/reservations`)
-- **Modifier** `src/App.tsx` : ajouter la route `<Route path="reservations" element={<AdminReservations />} />`
+## Solution
 
-## 2. Systeme de signalement cote consommateur
+### 1. Migration SQL : ajouter les foreign keys manquantes
 
-Permettre a un consommateur de signaler une commande (texte + photo) depuis le detail de sa reservation.
-
-### Base de donnees
-
-Creer une table `reports` via migration SQL :
+Ajouter trois contraintes de cle etrangere sur la table `reports` :
 
 ```sql
-CREATE TABLE public.reports (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  reservation_id uuid NOT NULL,
-  restaurant_id uuid NOT NULL,
-  message text NOT NULL,
-  image_url text,
-  status text NOT NULL DEFAULT 'pending',
-  admin_notes text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
+ALTER TABLE public.reports
+  ADD CONSTRAINT reports_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES auth.users(id);
 
-ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reports
+  ADD CONSTRAINT reports_restaurant_id_fkey
+  FOREIGN KEY (restaurant_id) REFERENCES public.restaurants(id);
 
--- Consommateurs peuvent creer et voir leurs propres signalements
-CREATE POLICY "Users can insert own reports"
-  ON public.reports FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can view own reports"
-  ON public.reports FOR SELECT
-  USING (auth.uid() = user_id);
-
--- Admins peuvent tout voir et mettre a jour
-CREATE POLICY "Admins can view all reports"
-  ON public.reports FOR SELECT
-  USING (has_role(auth.uid(), 'admin'));
-
-CREATE POLICY "Admins can update reports"
-  ON public.reports FOR UPDATE
-  USING (has_role(auth.uid(), 'admin'));
+ALTER TABLE public.reports
+  ADD CONSTRAINT reports_reservation_id_fkey
+  FOREIGN KEY (reservation_id) REFERENCES public.reservations(id);
 ```
 
-Creer un bucket storage `report-images` (public) pour les photos de signalement.
+Ces foreign keys permettront a PostgREST de resoudre correctement les jointures dans la requete existante.
 
-### Bouton "Signaler" dans le detail de commande
+### 2. Aucune modification de code necessaire
 
-**Modifier** `src/components/ReservationConfirmation.tsx` :
-- Ajouter un bouton "Signaler un probleme" (icone `Flag`) en bas de la page
-- Au clic, ouvrir un Dialog avec :
-  - Un champ texte (Textarea) pour decrire le probleme
-  - Un bouton d'upload photo (upload vers le bucket `report-images`)
-  - Un bouton "Envoyer le signalement"
-- Apres envoi, inserer une ligne dans la table `reports`
-- Afficher un toast de confirmation
-- Si un signalement existe deja pour cette reservation, afficher "Signalement envoye" au lieu du bouton
+Le code de `AdminReports.tsx` est deja correct. Une fois les foreign keys ajoutees, la requete `.select("*, restaurants(name), profiles:user_id(email, full_name)")` fonctionnera sans erreur.
 
-## 3. Onglet admin "Signalements" (`/admin/reports`)
+## Resume
 
-Creer une page `src/pages/admin/AdminReports.tsx` pour consulter tous les signalements.
-
-### Contenu de la page
-- Liste des signalements avec : Consommateur, Restaurant, Date, Message (tronque), Photo (miniature cliquable), Statut
-- **Filtre par statut** : Tous / En attente / Traite / Rejete
-- **Filtre par commercant** : champ texte avec autocompletion
-- Cliquer sur un signalement ouvre un detail avec :
-  - Le message complet
-  - La photo en grand
-  - Un champ "Notes admin" (Textarea) pour ajouter des commentaires
-  - Boutons "Marquer traite" / "Rejeter" qui mettent a jour le statut
-
-### Fichiers concernes
-- **Creer** `src/pages/admin/AdminReports.tsx`
-- **Modifier** `src/pages/admin/AdminLayout.tsx` : ajouter "Signalements" dans `navItems` (icone `Flag`, url `/admin/reports`)
-- **Modifier** `src/App.tsx` : ajouter la route `<Route path="reports" element={<AdminReports />} />`
-
-## Resume des fichiers
-
-| Fichier | Action |
+| Element | Action |
 |---|---|
-| Migration SQL | Creer table `reports` + RLS + bucket `report-images` |
-| `src/pages/admin/AdminReservations.tsx` | Creer |
-| `src/pages/admin/AdminReports.tsx` | Creer |
-| `src/components/ReservationConfirmation.tsx` | Modifier (ajouter bouton Signaler + Dialog) |
-| `src/pages/admin/AdminLayout.tsx` | Modifier (ajouter 2 entrees nav) |
-| `src/App.tsx` | Modifier (ajouter 2 routes) |
+| Migration SQL | Ajouter 3 foreign keys sur la table `reports` |
+| Code | Aucun changement |
 
-## Navigation admin finale
+## Resultat attendu
 
-```text
-+------------------+
-| Vue d'ensemble   |
-| Restaurants      |
-| Reservations NEW |
-| Paiements        |
-| Signalements NEW |
-| Analytics        |
-| Parametres       |
-+------------------+
-```
+Apres la migration, les signalements s'afficheront immediatement avec le nom du restaurant et du consommateur, sans lenteur.
 
