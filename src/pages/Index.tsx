@@ -55,6 +55,7 @@ const Index = () => {
   );
 
   if (selectedOffer) {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     return <OfferDetail offer={selectedOffer} onBack={() => setSelectedOffer(null)} dynamicRating={ratings[selectedOffer.restaurantName]} />;
   }
 
