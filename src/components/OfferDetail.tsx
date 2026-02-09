@@ -18,29 +18,12 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [reserving, setReserving] = useState(false);
-  const [coords, setCoords] = useState<[number, number] | null>(null);
-  const [geoFailed, setGeoFailed] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
 
   const discount = Math.round((1 - offer.discountedPrice / offer.originalPrice) * 100);
-
-  // Geocode restaurant address
-  useEffect(() => {
-    if (!offer.restaurantAddress) { setGeoFailed(true); return; }
-    const controller = new AbortController();
-    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(offer.restaurantAddress)}&format=json&limit=1`, {
-      headers: { "Accept-Language": "fr" },
-      signal: controller.signal,
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.length > 0) setCoords([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
-        else setGeoFailed(true);
-      })
-      .catch(() => setGeoFailed(true));
-    return () => controller.abort();
-  }, [offer.restaurantAddress]);
+  const hasCoords = offer.latitude != null && offer.longitude != null;
+  const coords: [number, number] | null = hasCoords ? [offer.latitude!, offer.longitude!] : null;
 
   // Render Leaflet map
   useEffect(() => {
@@ -184,12 +167,8 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
           </div>
           {coords ? (
             <div ref={mapRef} className="h-40 w-full rounded-lg overflow-hidden" />
-          ) : geoFailed ? (
-           <p className="text-xs text-muted-foreground">{offer.restaurantAddress || "Adresse non disponible"}</p>
           ) : (
-            <div className="flex h-40 items-center justify-center">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
+           <p className="text-xs text-muted-foreground">{offer.restaurantAddress || "Adresse non disponible"}</p>
           )}
           {offer.restaurantAddress && (
             <p className="mt-2 text-xs text-muted-foreground">{offer.restaurantAddress}</p>

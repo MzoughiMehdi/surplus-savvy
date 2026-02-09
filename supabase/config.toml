@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.check-connect-status]
 verify_jwt = false
+
+[functions.geocode-restaurants]
+verify_jwt = false

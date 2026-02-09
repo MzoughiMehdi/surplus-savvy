@@ -16,6 +16,8 @@ export interface Offer {
   pickupEnd: string;
   itemsLeft: number;
   image: string;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export const useOffers = () => {
@@ -29,7 +31,7 @@ export const useOffers = () => {
 
     const { data, error } = await supabase
       .from("offers")
-      .select("*, restaurants(name, image_url, address, postal_code, city)")
+      .select("*, restaurants(name, image_url, address, postal_code, city, latitude, longitude)")
       .eq("is_active", true)
       .gt("items_left", 0)
       .eq("date", today)
@@ -56,6 +58,8 @@ export const useOffers = () => {
       pickupEnd: o.pickup_end?.slice(0, 5) ?? "",
       itemsLeft: o.items_left,
       image: o.image_url ?? o.restaurants?.image_url ?? "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=300&fit=crop",
+      latitude: o.restaurants?.latitude ?? null,
+      longitude: o.restaurants?.longitude ?? null,
     }));
 
     setOffers(mapped);
