@@ -113,32 +113,7 @@ serve(async (req) => {
 
     console.log("[VERIFY-PAYMENT] Reservation created:", newReservation.id, "pickup_code:", newReservation.pickup_code, "tomorrow:", isTomorrowBooking);
 
-    // Record the payout split after successful payment (only for immediate capture)
-    if (restaurantId && !isTomorrowBooking) {
-      const { data: settings } = await supabaseAdmin
-        .from("platform_settings")
-        .select("commission_rate")
-        .limit(1)
-        .single();
-
-      const commissionRate = settings?.commission_rate ?? 50;
-      const amount = (session.amount_total || 0) / 100;
-      const platformAmount = amount * commissionRate / 100;
-      const restaurantAmount = amount - platformAmount;
-
-      await supabaseAdmin.from("restaurant_payouts").insert({
-        restaurant_id: restaurantId,
-        reservation_id: newReservation.id,
-        total_amount: amount,
-        commission_rate: commissionRate,
-        platform_amount: platformAmount,
-        restaurant_amount: restaurantAmount,
-        status: "pending",
-        stripe_transfer_id: paymentIntentId || null,
-      });
-
-      console.log("[VERIFY-PAYMENT] Payout recorded for restaurant:", restaurantId);
-    }
+    // Payout is now created exclusively in capture-payment when merchant accepts
     return new Response(
       JSON.stringify({
         success: true,

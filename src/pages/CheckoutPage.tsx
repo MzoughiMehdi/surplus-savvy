@@ -5,7 +5,7 @@ import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
-const stripePromise = loadStripe("pk_test_51SyE0dPrdr7HLEmYM7YiefkuIFz3tw4WSnWsTItRRzhefawhk6RQbWklPdT7RmBjMhpvGzU4FkqKOocXASoB87kS00sEboTZjQ");
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "");
 
 const CheckoutPage = () => {
   const [searchParams] = useSearchParams();
