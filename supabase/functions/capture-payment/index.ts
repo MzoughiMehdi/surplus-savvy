@@ -48,8 +48,21 @@ serve(async (req) => {
       apiVersion: "2025-08-27.basil",
     });
 
+    // Retrieve current PaymentIntent status before acting
+    const currentPi = await stripe.paymentIntents.retrieve(reservation.payment_intent_id);
+    console.log("[CAPTURE-PAYMENT] Current PI status:", currentPi.id, currentPi.status);
+
     if (action === "capture") {
-      // Capture the held payment
+      if (currentPi.status === "succeeded") {
+        console.log("[CAPTURE-PAYMENT] Already captured, returning success");
+        return new Response(JSON.stringify({ success: true, action: "captured", already_captured: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (currentPi.status !== "requires_capture") {
+        throw new Error(`Cannot capture: PaymentIntent status is "${currentPi.status}" (expected "requires_capture")`);
+      }
+
       const pi = await stripe.paymentIntents.capture(reservation.payment_intent_id);
       console.log("[CAPTURE-PAYMENT] Captured:", pi.id, pi.status);
 
@@ -82,7 +95,16 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } else {
-      // Cancel the payment intent (release hold)
+      if (currentPi.status === "canceled") {
+        console.log("[CAPTURE-PAYMENT] Already cancelled, returning success");
+        return new Response(JSON.stringify({ success: true, action: "cancelled", already_cancelled: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (currentPi.status !== "requires_capture") {
+        throw new Error(`Cannot cancel: PaymentIntent status is "${currentPi.status}" (expected "requires_capture")`);
+      }
+
       await stripe.paymentIntents.cancel(reservation.payment_intent_id);
       console.log("[CAPTURE-PAYMENT] Cancelled hold:", reservation.payment_intent_id);
 
