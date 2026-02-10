@@ -23,6 +23,8 @@ export interface Offer {
   pickupDate?: string;
 }
 
+let hasGenerated = false;
+
 const isPickupExpired = (pickupEnd: string) => {
   const now = new Date();
   const [h, m] = pickupEnd.split(":").map(Number);
@@ -40,7 +42,10 @@ export const useOffers = () => {
     list.filter((o) => !isPickupExpired(o.pickupEnd));
 
   const fetchOffers = async () => {
-    await supabase.rpc('generate_daily_offers');
+    if (!hasGenerated) {
+      await supabase.rpc('generate_daily_offers');
+      hasGenerated = true;
+    }
     const today = new Date().toISOString().split("T")[0];
 
     const { data, error } = await supabase
