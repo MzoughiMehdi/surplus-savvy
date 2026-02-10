@@ -8,11 +8,13 @@ import OfferDetail from "@/components/OfferDetail";
 import BottomNav from "@/components/BottomNav";
 import ImpactBanner from "@/components/ImpactBanner";
 import MapView from "@/components/MapView";
+import TomorrowOffersSection from "@/components/TomorrowOffersSection";
 import ExplorePage from "@/pages/ExplorePage";
 import FavoritesPage from "@/pages/FavoritesPage";
 import ProfilePage from "@/pages/ProfilePage";
 import OrdersPage from "@/pages/OrdersPage";
 import { useOffers, type Offer } from "@/hooks/useOffers";
+import { useTomorrowOffers } from "@/hooks/useTomorrowOffers";
 import { useAllRestaurantRatings } from "@/hooks/useAllRestaurantRatings";
 import { useUserLocation, getDistanceKm } from "@/hooks/useUserLocation";
 import { useAuth } from "@/hooks/useAuth";
@@ -29,6 +31,7 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("home");
   const [showMap, setShowMap] = useState(false);
   const { offers, loading, refetch } = useOffers();
+  const { tomorrowOffers, loadingTomorrow } = useTomorrowOffers();
   const { ratings } = useAllRestaurantRatings();
   const { user, profile } = useAuth();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -84,7 +87,7 @@ const Index = () => {
   const renderTab = () => {
     switch (activeTab) {
       case "explore":
-        return <ExplorePage offers={offers} loadingOffers={loading} isFavorite={isFavorite} onToggleFavorite={toggleFavorite} />;
+        return <ExplorePage offers={offers} loadingOffers={loading} isFavorite={isFavorite} onToggleFavorite={toggleFavorite} tomorrowOffers={tomorrowOffers} />;
       case "orders":
         return <OrdersPage />;
       case "favorites":
@@ -110,27 +113,48 @@ const Index = () => {
                 <div className="flex justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
-              ) : filteredOffers.length === 0 ? (
+              ) : filteredOffers.length === 0 && tomorrowOffers.length === 0 ? (
                 <div className="py-12 text-center">
                   <p className="text-4xl">🍽️</p>
                   <p className="mt-3 font-display text-lg font-semibold text-foreground">Aucune offre disponible</p>
                   <p className="mt-1 text-sm text-muted-foreground">Revenez plus tard pour découvrir de nouvelles offres</p>
                 </div>
               ) : (
-                <div className="grid gap-4">
-                  {filteredOffers.map((offer, i) => (
-                    <OfferCard
-                      key={offer.id}
-                      offer={offer}
-                      onClick={setSelectedOffer}
-                      index={i}
-                      dynamicRating={ratings[offer.restaurantName]}
-                      distanceKm={getOfferDistance(offer)}
-                      isFavorite={isFavorite(offer.restaurantId)}
-                      onToggleFavorite={toggleFavorite}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="grid gap-4">
+                    {filteredOffers.slice(0, 2).map((offer, i) => (
+                      <OfferCard
+                        key={offer.id}
+                        offer={offer}
+                        onClick={setSelectedOffer}
+                        index={i}
+                        dynamicRating={ratings[offer.restaurantName]}
+                        distanceKm={getOfferDistance(offer)}
+                        isFavorite={isFavorite(offer.restaurantId)}
+                        onToggleFavorite={toggleFavorite}
+                      />
+                    ))}
+                  </div>
+
+                  <TomorrowOffersSection offers={tomorrowOffers} onSelectOffer={setSelectedOffer} />
+
+                  {filteredOffers.length > 2 && (
+                    <div className="grid gap-4">
+                      {filteredOffers.slice(2).map((offer, i) => (
+                        <OfferCard
+                          key={offer.id}
+                          offer={offer}
+                          onClick={setSelectedOffer}
+                          index={i + 2}
+                          dynamicRating={ratings[offer.restaurantName]}
+                          distanceKm={getOfferDistance(offer)}
+                          isFavorite={isFavorite(offer.restaurantId)}
+                          onToggleFavorite={toggleFavorite}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </>
