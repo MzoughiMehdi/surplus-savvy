@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Package, Clock, BarChart3, Store, LogOut, QrCode, CheckCircle, XCircle, Users, CreditCard, ExternalLink, Loader2, Landmark } from "lucide-react";
+import { Package, Clock, BarChart3, Store, LogOut, QrCode, CheckCircle, XCircle, Users, CreditCard, ExternalLink, Loader2, Landmark, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import NotificationBell from "@/components/NotificationBell";
 import RestaurantImageUpload from "@/components/RestaurantImageUpload";
@@ -30,6 +30,8 @@ interface ReservationData {
   status: string;
   created_at: string;
   user_id: string;
+  pickup_date: string | null;
+  config_id: string | null;
   offers: { title: string; discounted_price: number } | null;
 }
 
@@ -130,7 +132,7 @@ const Dashboard = () => {
 
     const { data: res } = await supabase
       .from("reservations")
-      .select("id, pickup_code, status, created_at, user_id, payment_intent_id, offers(title, discounted_price)")
+      .select("id, pickup_code, status, created_at, user_id, payment_intent_id, pickup_date, config_id, offers(title, discounted_price)")
       .eq("restaurant_id", rest.id)
       .order("created_at", { ascending: false })
       .limit(20);
@@ -284,6 +286,21 @@ const Dashboard = () => {
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {new Date(r.created_at).toLocaleDateString("fr-FR")}
                     </p>
+                    {(() => {
+                      const today = new Date().toISOString().split("T")[0];
+                      const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+                      const pickupDay = r.pickup_date || today;
+                      const isTomorrow = pickupDay === tomorrow;
+                      const isToday = pickupDay <= today;
+                      return (
+                        <div className="mt-1 flex items-center gap-2">
+                          <CalendarDays className="h-3 w-3 text-muted-foreground" />
+                          <Badge variant={isTomorrow ? "outline" : "secondary"} className="text-[10px]">
+                            {isTomorrow ? "Demain" : isToday ? "Aujourd'hui" : pickupDay}
+                          </Badge>
+                        </div>
+                      );
+                    })()}
                     <div className="mt-1 flex items-center gap-2">
                       <QrCode className="h-3 w-3 text-muted-foreground" />
                       <span className="font-mono text-xs font-bold text-primary">{r.pickup_code.toUpperCase()}</span>
