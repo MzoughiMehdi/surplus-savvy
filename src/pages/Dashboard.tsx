@@ -30,7 +30,7 @@ interface ReservationData {
   status: string;
   created_at: string;
   user_id: string;
-  offers: { title: string; discounted_price: number };
+  offers: { title: string; discounted_price: number } | null;
 }
 
 const ConnectSection = ({ restaurantId }: { restaurantId?: string }) => {
@@ -280,7 +280,7 @@ const Dashboard = () => {
               <div key={r.id} className="rounded-xl bg-card p-4 shadow-sm">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-foreground">{r.offers.title}</p>
+                    <p className="text-sm font-semibold text-foreground">{r.offers?.title ?? "Panier de demain"}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {new Date(r.created_at).toLocaleDateString("fr-FR")}
                     </p>
@@ -302,7 +302,7 @@ const Dashboard = () => {
                        r.status === "accepted" ? "Acceptée" :
                        r.status === "completed" ? "Retiré" : "Annulé"}
                     </Badge>
-                    <span className="text-sm font-bold text-primary">€{r.offers.discounted_price}</span>
+                    <span className="text-sm font-bold text-primary">€{r.offers?.discounted_price ?? "—"}</span>
                   </div>
                 </div>
                 {r.status === "confirmed" && (
