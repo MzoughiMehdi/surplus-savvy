@@ -96,34 +96,15 @@ serve(async (req) => {
       },
     };
 
-    // Deferred capture for tomorrow bookings
-    if (isTomorrowBooking) {
-      sessionParams.payment_intent_data = {
-        ...(sessionParams.payment_intent_data || {}),
-        capture_method: "manual",
-      };
-    }
+    // Always use manual capture: real debit happens when merchant confirms
+    sessionParams.payment_intent_data = {
+      capture_method: "manual",
+    };
 
     // If restaurant has a Connect account, use it for split payments
     if (stripeAccountId) {
       sessionParams.payment_intent_data = {
-        ...(sessionParams.payment_intent_data || {}),
-        application_fee_amount: platformFeeCents,
-        transfer_data: {
-          destination: stripeAccountId,
-        },
-      };
-      console.log("[CREATE-PAYMENT] Using Connect split:", {
-        total: amountCents,
-        platformFee: platformFeeCents,
-        destination: stripeAccountId,
-        manualCapture: isTomorrowBooking,
-      });
-    }
-
-    // If restaurant has a Connect account, use it for split payments
-    if (stripeAccountId) {
-      sessionParams.payment_intent_data = {
+        ...sessionParams.payment_intent_data,
         application_fee_amount: platformFeeCents,
         transfer_data: {
           destination: stripeAccountId,
