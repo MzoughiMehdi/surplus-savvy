@@ -41,7 +41,7 @@ const CheckoutPage = () => {
     return data.clientSecret;
   }, [offerId, offerTitle, amount, restaurantId, configId, pickupDate]);
 
-  if (!offerId || !amount) {
+  if ((!offerId && !configId) || !amount) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-5">
         <p className="text-muted-foreground">Paramètres de paiement manquants.</p>
