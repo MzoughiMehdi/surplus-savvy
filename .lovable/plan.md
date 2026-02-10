@@ -1,54 +1,104 @@
 
+# Correction des 6 problemes identifies
 
-# Ajout d'onglets de navigation sur le Dashboard commercant
+## 1. Double payout dans verify-payment
 
-## Structure des 4 onglets
+**Fichier** : `supabase/functions/verify-payment/index.ts`
 
-Navigation fixe en bas de page, meme style visuel que le `BottomNav` existant (fond primary, icones blanches, indicateur actif) :
+Supprimer le bloc de creation de payout (lignes 116-141) qui enregistre un payout pour les reservations non-demain. Puisque toutes les reservations utilisent maintenant `capture_method: "manual"`, le payout doit etre cree uniquement dans `capture-payment` au moment de la capture reelle des fonds.
 
-1. **Dashboard** (defaut) -- icone `Store` -- contenu actuel : photo, abonnement, Connect, stats rapides, config panier, calendrier
-2. **Reservations** -- icone `Clock` -- reservations en attente de validation (statut `confirmed`) avec boutons Accepter/Refuser
-3. **Commandes** -- icone `ShoppingBag` -- commandes acceptees (`accepted`) avec bouton "Marquer comme retire" + commandes retirees (`completed`)
-4. **Statistiques** -- icone `BarChart3` -- metriques et graphiques
+Le bloc a supprimer :
+```
+// Record the payout split after successful payment (only for immediate capture)
+if (restaurantId && !isTomorrowBooking) { ... }
+```
 
-## Contenu de l'onglet Statistiques
+## 2. Protection des routes /dashboard et /admin
 
-- **Moyenne de reservations par jour** sur les 30 derniers jours (card avec chiffre)
-- **Graphique en barres** : nombre de commandes par jour sur les 30 derniers jours (recharts `BarChart`)
-- **Total revenus bruts des 30 derniers jours** (somme des `discounted_price` des reservations `completed`)
-- **Graphique en barres des revenus par mois** (recharts `BarChart`)
+**Fichier** : `src/App.tsx`
 
-## Changements techniques
+Creer un composant `ProtectedRoute` qui verifie l'authentification et le role avant de rendre la page :
 
-### Fichier : `src/pages/Dashboard.tsx`
+- `/dashboard` : accessible uniquement aux utilisateurs connectes avec le role `merchant`
+- `/admin` : accessible uniquement aux utilisateurs connectes avec le role `admin` (remplace la verification interne de `AdminLayout`)
+- `/checkout` et `/checkout-return` : accessibles uniquement aux utilisateurs connectes
+- Redirection vers `/auth` si non connecte
+- Affichage d'un loader pendant le chargement de l'authentification
 
-1. **Ajouter un state `activeTab`** : `"dashboard" | "reservations" | "commandes" | "stats"`, defaut `"dashboard"`
+```text
+<Route path="/dashboard" element={
+  <ProtectedRoute role="merchant">
+    <Dashboard />
+  </ProtectedRoute>
+} />
+```
 
-2. **Augmenter la limite de la requete** de 20 a 200 pour avoir assez de donnees pour les statistiques
+Le composant utilisera `useAuth()` pour verifier `user`, `loading`, `profileLoading`, `profile.role` et `isAdmin`.
 
-3. **Creer un composant `MerchantBottomNav` inline** reprenant le style exact de `BottomNav` :
-   - 4 boutons : Dashboard, Reservations, Commandes, Statistiques
-   - Meme classes CSS : `fixed bottom-0`, `bg-primary`, `text-primary-foreground`, indicateur actif
+## 3. generate_daily_offers() appele une seule fois
 
-4. **Reorganiser le rendu conditionnel** :
-   - Le header (titre, logout, notifications) reste toujours visible
-   - Le contenu change selon `activeTab` :
-     - `"dashboard"` : photo, abonnement, Connect, statut pending, stats rapides, config panier, calendrier
-     - `"reservations"` : liste filtree sur `status === "confirmed"` avec boutons Accepter/Refuser et badges Aujourd'hui/Demain
-     - `"commandes"` : liste filtree sur `status === "accepted"` ou `"completed"`, bouton "Marquer comme retire" pour les acceptees
-     - `"stats"` : calculs et graphiques recharts
+**Fichier** : `src/hooks/useOffers.ts`
 
-5. **Ajouter `pb-24`** au conteneur principal pour l'espace sous la nav fixe
+Remplacer l'appel systematique a `supabase.rpc('generate_daily_offers')` par un mecanisme qui ne l'execute qu'une fois par session :
 
-6. **Section Statistiques** :
-   - Filtrer les reservations des 30 derniers jours
-   - Calculer la moyenne par jour : `total / 30`
-   - Grouper par jour pour le graphique barres (recharts `BarChart`, `XAxis`, `YAxis`, `Tooltip`, `Bar`)
-   - Calculer le total brut : somme des `discounted_price` des reservations `completed`
-   - Grouper par mois pour le graphique revenus mensuels
-   - Utiliser `ResponsiveContainer` pour le responsive
+- Utiliser une variable de module (`let hasGenerated = false`) en dehors du hook
+- Verifier cette variable avant d'appeler le RPC
+- La mettre a `true` apres le premier appel
+- Les chargements suivants (navigation, remontage du composant) ne declencheront plus la RPC
 
-### Aucun nouveau fichier, aucun changement backend
+## 4. Navigation avec React Router (consommateur)
 
-Tout reste dans `Dashboard.tsx`. Les donnees sont filtrees/calculees a partir des reservations deja chargees. `recharts` est deja installe.
+**Fichiers** : `src/App.tsx`, `src/pages/Index.tsx`, `src/components/BottomNav.tsx`
 
+Transformer les onglets du consommateur en sous-routes React Router :
+
+- Ajouter les routes `/home/explore`, `/home/orders`, `/home/favorites`, `/home/profile` dans `App.tsx`
+- Modifier `Index.tsx` pour utiliser `useLocation` et `Outlet` au lieu de `activeTab`
+- Modifier `BottomNav` pour utiliser `useNavigate` avec les chemins au lieu d'un callback `onNavigate`
+- Le bouton retour du navigateur fonctionnera entre les onglets
+- Les URLs seront bookmarkables
+
+Pour le dashboard commercant, meme approche avec les sous-routes `/dashboard/reservations`, `/dashboard/commandes`, `/dashboard/stats`.
+
+## 5. Dashboard commercant optimiste
+
+**Fichier** : `src/pages/Dashboard.tsx`
+
+Modifier les actions Accepter / Refuser / Marquer comme retire dans `ReservationCard` :
+
+- **Mise a jour optimiste** : modifier `reservations` via `setReservations` immediatement au clic
+- **Parallelisation** : lancer le `update` DB et l'appel `capture-payment` en `Promise.all`
+- **Suppression de `fetchData()`** apres chaque action
+- **State de chargement cible** : `loadingReservationId` pour desactiver uniquement les boutons de la carte en cours
+- **Rollback en cas d'erreur** : restaurer l'etat precedent et afficher un toast d'erreur
+
+Passer `setReservations` et `loadingReservationId` en props de `ReservationCard` au lieu de `fetchData`.
+
+## 6. Cle Stripe en variable d'environnement
+
+**Fichier** : `src/pages/CheckoutPage.tsx`
+
+Remplacer la cle Stripe en dur (ligne 8) par une variable d'environnement :
+
+```typescript
+// Avant
+const stripePromise = loadStripe("pk_test_51SyE0d...");
+
+// Apres
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "");
+```
+
+Ajouter `VITE_STRIPE_PUBLISHABLE_KEY` dans le fichier `.env` avec la valeur actuelle.
+
+---
+
+## Ordre d'implementation
+
+1. verify-payment (suppression payout) + deploiement
+2. CheckoutPage (variable d'environnement Stripe)
+3. useOffers (appel RPC une seule fois)
+4. ProtectedRoute + App.tsx (protection des routes)
+5. Navigation React Router (Index + BottomNav + Dashboard + App.tsx)
+6. Dashboard optimiste (ReservationCard)
+
+Les points 1-3 sont des corrections rapides et independantes. Les points 4-6 touchent la navigation et le Dashboard et seront faits dans l'ordre pour eviter les conflits.
