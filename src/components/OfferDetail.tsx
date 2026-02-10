@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Clock, MapPin, Star, ShoppingBag, Loader2, Sparkles, Package, Palette, AlertTriangle, ClipboardList, Leaf } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, Star, ShoppingBag, Loader2, Sparkles, Package, Palette, AlertTriangle, ClipboardList, Leaf, CreditCard } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { Offer } from "@/hooks/useOffers";
@@ -59,13 +59,21 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
     if (!user) { toast.error("Connectez-vous pour réserver"); navigate("/auth"); return; }
     if (offer.itemsLeft <= 0) { toast.error("Cette offre n'est plus disponible"); return; }
     const params = new URLSearchParams({
-      offerId: offer.id,
+      offerId: offer.isTomorrow ? "" : offer.id,
       offerTitle: offer.title,
       amount: offer.discountedPrice.toString(),
       restaurantId: offer.restaurantId || "",
     });
+    if (offer.isTomorrow && offer.configId) {
+      params.set("configId", offer.configId);
+      params.set("pickupDate", offer.pickupDate || "");
+    }
     navigate(`/checkout?${params.toString()}`);
   };
+
+  const tomorrowDateFormatted = offer.pickupDate
+    ? new Date(offer.pickupDate + "T00:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })
+    : "";
 
   return (
     <div className="animate-fade-in-up min-h-screen bg-background pb-28">
@@ -146,9 +154,23 @@ const OfferDetail = ({ offer, onBack, dynamicRating }: OfferDetailProps) => {
             Créneau de retrait
           </div>
           <p className="mt-1 text-lg font-bold text-primary">
-            {offer.pickupStart} – {offer.pickupEnd}
+            {offer.isTomorrow && tomorrowDateFormatted ? (
+              <><span className="capitalize">{tomorrowDateFormatted}</span> · {offer.pickupStart} – {offer.pickupEnd}</>
+            ) : (
+              <>{offer.pickupStart} – {offer.pickupEnd}</>
+            )}
           </p>
         </div>
+
+        {/* Deferred payment info for tomorrow offers */}
+        {offer.isTomorrow && (
+          <div className="mt-3 flex items-start gap-2 rounded-xl border border-accent/30 bg-accent/10 p-3">
+            <CreditCard className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              <strong className="text-foreground">Paiement différé :</strong> Vous ne serez débité(e) que si le commerçant confirme votre réservation. En cas de refus, aucun prélèvement ne sera effectué.
+            </p>
+          </div>
+        )}
 
         {/* Price block */}
         <div className="mt-4 flex items-center justify-between rounded-xl bg-secondary p-4">

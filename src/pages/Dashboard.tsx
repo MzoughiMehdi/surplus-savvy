@@ -130,7 +130,7 @@ const Dashboard = () => {
 
     const { data: res } = await supabase
       .from("reservations")
-      .select("id, pickup_code, status, created_at, user_id, offers(title, discounted_price)")
+      .select("id, pickup_code, status, created_at, user_id, payment_intent_id, offers(title, discounted_price)")
       .eq("restaurant_id", rest.id)
       .order("created_at", { ascending: false })
       .limit(20);
@@ -312,6 +312,16 @@ const Dashboard = () => {
                       className="flex-1"
                       onClick={async () => {
                         await supabase.from("reservations").update({ status: "accepted" }).eq("id", r.id);
+                        // Capture deferred payment if applicable
+                        if ((r as any).payment_intent_id) {
+                          const { error } = await supabase.functions.invoke("capture-payment", {
+                            body: { reservationId: r.id, action: "capture" },
+                          });
+                          if (error) {
+                            toast.error("Erreur lors de la capture du paiement");
+                            return;
+                          }
+                        }
                         toast.success("Réservation acceptée !");
                         fetchData();
                       }}
@@ -323,6 +333,12 @@ const Dashboard = () => {
                       variant="outline"
                       className="flex-1"
                       onClick={async () => {
+                        // Cancel deferred payment if applicable
+                        if ((r as any).payment_intent_id) {
+                          await supabase.functions.invoke("capture-payment", {
+                            body: { reservationId: r.id, action: "cancel" },
+                          });
+                        }
                         await supabase.from("reservations").update({ status: "cancelled" }).eq("id", r.id);
                         toast.success("Réservation annulée");
                         fetchData();

@@ -42,10 +42,13 @@ serve(async (req) => {
       );
     }
 
-    const offerId = session.metadata?.offer_id;
+    const offerId = session.metadata?.offer_id || null;
     const restaurantId = session.metadata?.restaurant_id;
     const userId = session.metadata?.user_id || user.id;
     const paymentIntentId = session.payment_intent as string;
+    const configId = session.metadata?.config_id || null;
+    const pickupDate = session.metadata?.pickup_date || null;
+    const isTomorrowBooking = !!configId;
 
     // Use service role to create reservation (bypasses RLS)
     const supabaseAdmin = createClient(
@@ -71,20 +74,32 @@ serve(async (req) => {
           reservationId: existing[0].id,
           pickupCode: existing[0].pickup_code,
           alreadyExists: true,
+          isTomorrowBooking,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
       );
     }
 
+    // Build reservation insert
+    const reservationInsert: Record<string, any> = {
+      user_id: userId,
+      restaurant_id: restaurantId || "",
+      stripe_session_id: sessionId,
+      payment_intent_id: paymentIntentId,
+    };
+
+    if (isTomorrowBooking) {
+      reservationInsert.config_id = configId;
+      reservationInsert.pickup_date = pickupDate;
+      // offer_id is null for tomorrow bookings
+    } else {
+      reservationInsert.offer_id = offerId;
+    }
+
     // Create the reservation server-side
     const { data: newReservation, error: insertError } = await supabaseAdmin
       .from("reservations")
-      .insert({
-        user_id: userId,
-        offer_id: offerId,
-        restaurant_id: restaurantId || "",
-        stripe_session_id: sessionId,
-      })
+      .insert(reservationInsert)
       .select("id, pickup_code")
       .single();
 
@@ -96,10 +111,10 @@ serve(async (req) => {
       );
     }
 
-    console.log("[VERIFY-PAYMENT] Reservation created:", newReservation.id, "pickup_code:", newReservation.pickup_code);
+    console.log("[VERIFY-PAYMENT] Reservation created:", newReservation.id, "pickup_code:", newReservation.pickup_code, "tomorrow:", isTomorrowBooking);
 
-    // Record the payout split after successful payment
-    if (restaurantId) {
+    // Record the payout split after successful payment (only for immediate capture)
+    if (restaurantId && !isTomorrowBooking) {
       const { data: settings } = await supabaseAdmin
         .from("platform_settings")
         .select("commission_rate")
@@ -124,7 +139,6 @@ serve(async (req) => {
 
       console.log("[VERIFY-PAYMENT] Payout recorded for restaurant:", restaurantId);
     }
-
     return new Response(
       JSON.stringify({
         success: true,
@@ -132,6 +146,7 @@ serve(async (req) => {
         restaurantId,
         reservationId: newReservation.id,
         pickupCode: newReservation.pickup_code,
+        isTomorrowBooking,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     );

@@ -3,6 +3,7 @@ import { Search, MapPin, SlidersHorizontal, Loader2 } from "lucide-react";
 import CategoryFilter from "@/components/CategoryFilter";
 import OfferCard from "@/components/OfferCard";
 import OfferDetail from "@/components/OfferDetail";
+import TomorrowOffersSection from "@/components/TomorrowOffersSection";
 import type { Offer } from "@/hooks/useOffers";
 import { useAllRestaurantRatings } from "@/hooks/useAllRestaurantRatings";
 import { useUserLocation, getDistanceKm } from "@/hooks/useUserLocation";
@@ -12,9 +13,10 @@ interface ExplorePageProps {
   loadingOffers: boolean;
   isFavorite: (restaurantId: string) => boolean;
   onToggleFavorite: (restaurantId: string) => void;
+  tomorrowOffers?: Offer[];
 }
 
-const ExplorePage = ({ offers, loadingOffers, isFavorite, onToggleFavorite }: ExplorePageProps) => {
+const ExplorePage = ({ offers, loadingOffers, isFavorite, onToggleFavorite, tomorrowOffers = [] }: ExplorePageProps) => {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
@@ -102,18 +104,21 @@ const ExplorePage = ({ offers, loadingOffers, isFavorite, onToggleFavorite }: Ex
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="grid gap-4">
-            {filteredOffers.map((offer, i) => (
-              <OfferCard key={offer.id} offer={offer} onClick={setSelectedOffer} index={i} dynamicRating={ratings[offer.restaurantName]} distanceKm={getOfferDistance(offer)} isFavorite={isFavorite(offer.restaurantId)} onToggleFavorite={onToggleFavorite} />
-            ))}
-            {filteredOffers.length === 0 && (
-              <div className="py-12 text-center">
-                <p className="text-4xl">🔍</p>
-                <p className="mt-3 font-display text-lg font-semibold text-foreground">Aucun résultat</p>
-                <p className="mt-1 text-sm text-muted-foreground">Essayez de modifier vos filtres</p>
-              </div>
-            )}
-          </div>
+          <>
+            <div className="grid gap-4">
+              {filteredOffers.map((offer, i) => (
+                <OfferCard key={offer.id} offer={offer} onClick={setSelectedOffer} index={i} dynamicRating={ratings[offer.restaurantName]} distanceKm={getOfferDistance(offer)} isFavorite={isFavorite(offer.restaurantId)} onToggleFavorite={onToggleFavorite} />
+              ))}
+              {filteredOffers.length === 0 && tomorrowOffers.length === 0 && (
+                <div className="py-12 text-center">
+                  <p className="text-4xl">🔍</p>
+                  <p className="mt-3 font-display text-lg font-semibold text-foreground">Aucun résultat</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Essayez de modifier vos filtres</p>
+                </div>
+              )}
+            </div>
+            <TomorrowOffersSection offers={tomorrowOffers} onSelectOffer={setSelectedOffer} />
+          </>
         )}
       </div>
     </div>

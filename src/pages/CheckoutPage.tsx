@@ -16,16 +16,22 @@ const CheckoutPage = () => {
   const offerTitle = searchParams.get("offerTitle");
   const amount = searchParams.get("amount");
   const restaurantId = searchParams.get("restaurantId");
+  const configId = searchParams.get("configId");
+  const pickupDate = searchParams.get("pickupDate");
 
   const fetchClientSecret = useCallback(async () => {
-    const { data, error } = await supabase.functions.invoke("create-payment", {
-      body: {
-        offerId,
-        offerTitle,
-        amount: parseFloat(amount || "0"),
-        restaurantId,
-      },
-    });
+    const body: Record<string, any> = {
+      offerId,
+      offerTitle,
+      amount: parseFloat(amount || "0"),
+      restaurantId,
+    };
+    if (configId) {
+      body.configId = configId;
+      body.pickupDate = pickupDate;
+    }
+
+    const { data, error } = await supabase.functions.invoke("create-payment", { body });
 
     if (error || !data?.clientSecret) {
       setError("Impossible de charger le formulaire de paiement.");
@@ -33,7 +39,7 @@ const CheckoutPage = () => {
     }
 
     return data.clientSecret;
-  }, [offerId, offerTitle, amount, restaurantId]);
+  }, [offerId, offerTitle, amount, restaurantId, configId, pickupDate]);
 
   if (!offerId || !amount) {
     return (

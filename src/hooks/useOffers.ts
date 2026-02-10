@@ -18,6 +18,9 @@ export interface Offer {
   image: string;
   latitude: number | null;
   longitude: number | null;
+  isTomorrow?: boolean;
+  configId?: string;
+  pickupDate?: string;
 }
 
 const isPickupExpired = (pickupEnd: string) => {

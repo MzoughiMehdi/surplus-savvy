@@ -31,8 +31,8 @@ serve(async (req) => {
     const user = data.user;
     if (!user?.email) throw new Error("User not authenticated");
 
-    const { offerId, offerTitle, amount, restaurantId } = await req.json();
-    if (!offerId || !amount) throw new Error("Missing offerId or amount");
+    const { offerId, offerTitle, amount, restaurantId, configId, pickupDate } = await req.json();
+    if ((!offerId && !configId) || !amount) throw new Error("Missing offerId/configId or amount");
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2025-08-27.basil",
@@ -68,6 +68,8 @@ serve(async (req) => {
     const amountCents = Math.round(amount * 100);
     const platformFeeCents = Math.round(amountCents * commissionRate / 100);
 
+    const isTomorrowBooking = !!configId;
+
     // Build session params
     const sessionParams: any = {
       customer: customerId,
@@ -86,11 +88,38 @@ serve(async (req) => {
       ui_mode: "embedded",
       return_url: `${origin}/checkout-return?session_id={CHECKOUT_SESSION_ID}`,
       metadata: {
-        offer_id: offerId,
+        offer_id: offerId || "",
         user_id: user.id,
         restaurant_id: restaurantId || "",
+        config_id: configId || "",
+        pickup_date: pickupDate || "",
       },
     };
+
+    // Deferred capture for tomorrow bookings
+    if (isTomorrowBooking) {
+      sessionParams.payment_intent_data = {
+        ...(sessionParams.payment_intent_data || {}),
+        capture_method: "manual",
+      };
+    }
+
+    // If restaurant has a Connect account, use it for split payments
+    if (stripeAccountId) {
+      sessionParams.payment_intent_data = {
+        ...(sessionParams.payment_intent_data || {}),
+        application_fee_amount: platformFeeCents,
+        transfer_data: {
+          destination: stripeAccountId,
+        },
+      };
+      console.log("[CREATE-PAYMENT] Using Connect split:", {
+        total: amountCents,
+        platformFee: platformFeeCents,
+        destination: stripeAccountId,
+        manualCapture: isTomorrowBooking,
+      });
+    }
 
     // If restaurant has a Connect account, use it for split payments
     if (stripeAccountId) {

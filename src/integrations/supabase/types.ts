@@ -323,10 +323,13 @@ export type Database = {
       }
       reservations: {
         Row: {
+          config_id: string | null
           created_at: string
           id: string
-          offer_id: string
+          offer_id: string | null
+          payment_intent_id: string | null
           pickup_code: string
+          pickup_date: string | null
           restaurant_id: string
           status: string
           stripe_session_id: string | null
@@ -334,10 +337,13 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          config_id?: string | null
           created_at?: string
           id?: string
-          offer_id: string
+          offer_id?: string | null
+          payment_intent_id?: string | null
           pickup_code?: string
+          pickup_date?: string | null
           restaurant_id: string
           status?: string
           stripe_session_id?: string | null
@@ -345,10 +351,13 @@ export type Database = {
           user_id: string
         }
         Update: {
+          config_id?: string | null
           created_at?: string
           id?: string
-          offer_id?: string
+          offer_id?: string | null
+          payment_intent_id?: string | null
           pickup_code?: string
+          pickup_date?: string | null
           restaurant_id?: string
           status?: string
           stripe_session_id?: string | null
@@ -356,6 +365,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "reservations_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "surprise_bag_config"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reservations_offer_id_fkey"
             columns: ["offer_id"]
