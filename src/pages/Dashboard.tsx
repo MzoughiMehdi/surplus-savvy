@@ -33,7 +33,8 @@ interface ReservationData {
   user_id: string;
   pickup_date: string | null;
   config_id: string | null;
-  offers: { title: string; discounted_price: number } | null;
+  offers: { title: string; discounted_price: number; pickup_start: string; pickup_end: string } | null;
+  surprise_bag_config: { base_price: number; pickup_start: string; pickup_end: string } | null;
 }
 
 type TabId = "dashboard" | "reservations" | "commandes" | "stats";
@@ -138,11 +139,16 @@ const ReservationCard = ({ r, fetchData }: { r: ReservationData; fetchData: () =
   const isTomorrow = pickupDay === tomorrow;
   const isToday = pickupDay <= today;
 
+  const title = r.offers?.title ?? "Lot Anti-Gaspi";
+  const price = r.offers?.discounted_price ?? (r.surprise_bag_config ? Number((r.surprise_bag_config.base_price * 0.4).toFixed(2)) : 0);
+  const pickupStart = (r.offers?.pickup_start ?? r.surprise_bag_config?.pickup_start ?? "").slice(0, 5);
+  const pickupEnd = (r.offers?.pickup_end ?? r.surprise_bag_config?.pickup_end ?? "").slice(0, 5);
+
   return (
     <div className="rounded-xl bg-card p-4 shadow-sm">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm font-semibold text-foreground">{r.offers?.title ?? "Panier de demain"}</p>
+          <p className="text-sm font-semibold text-foreground">{title}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString("fr-FR")}</p>
           <div className="mt-1 flex items-center gap-2">
             <CalendarDays className="h-3 w-3 text-muted-foreground" />
@@ -150,6 +156,12 @@ const ReservationCard = ({ r, fetchData }: { r: ReservationData; fetchData: () =
               {isTomorrow ? "Demain" : isToday ? "Aujourd'hui" : pickupDay}
             </Badge>
           </div>
+          {(pickupStart || pickupEnd) && (
+            <div className="mt-1 flex items-center gap-1.5">
+              <Clock className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[10px] text-muted-foreground">{pickupStart} – {pickupEnd}</span>
+            </div>
+          )}
           <div className="mt-1 flex items-center gap-2">
             <QrCode className="h-3 w-3 text-muted-foreground" />
             <span className="font-mono text-xs font-bold text-primary">{r.pickup_code.toUpperCase()}</span>
@@ -166,9 +178,10 @@ const ReservationCard = ({ r, fetchData }: { r: ReservationData; fetchData: () =
           >
             {r.status === "confirmed" ? "En attente" :
              r.status === "accepted" ? "Acceptée" :
-             r.status === "completed" ? "Retiré" : "Annulé"}
+             r.status === "completed" ? "Retiré" :
+             r.status === "expired" ? "Expirée" : "Annulé"}
           </Badge>
-          <span className="text-sm font-bold text-primary">€{r.offers?.discounted_price ?? "—"}</span>
+          <span className="text-sm font-bold text-primary">€{price.toFixed(2)}</span>
         </div>
       </div>
       {r.status === "confirmed" && (
@@ -233,7 +246,7 @@ const StatsTab = ({ reservations }: { reservations: ReservationData[] }) => {
   const avgPerDay = (last30.length / 30).toFixed(1);
 
   const completedLast30 = last30.filter((r) => r.status === "completed");
-  const totalRevenue = completedLast30.reduce((sum, r) => sum + (r.offers?.discounted_price ?? 0), 0);
+  const totalRevenue = completedLast30.reduce((sum, r) => sum + (r.offers?.discounted_price ?? (r.surprise_bag_config ? Number((r.surprise_bag_config.base_price * 0.4).toFixed(2)) : 0)), 0);
 
   // Group by day for chart
   const dailyCounts: Record<string, number> = {};
@@ -251,7 +264,7 @@ const StatsTab = ({ reservations }: { reservations: ReservationData[] }) => {
     .filter((r) => r.status === "completed")
     .forEach((r) => {
       const month = r.created_at.slice(0, 7);
-      monthlyRevenue[month] = (monthlyRevenue[month] || 0) + (r.offers?.discounted_price ?? 0);
+      monthlyRevenue[month] = (monthlyRevenue[month] || 0) + (r.offers?.discounted_price ?? (r.surprise_bag_config ? Number((r.surprise_bag_config.base_price * 0.4).toFixed(2)) : 0));
     });
   const monthlyData = Object.entries(monthlyRevenue)
     .sort(([a], [b]) => a.localeCompare(b))
@@ -342,7 +355,7 @@ const Dashboard = () => {
 
     const { data: res } = await supabase
       .from("reservations")
-      .select("id, pickup_code, status, created_at, user_id, payment_intent_id, pickup_date, config_id, offers(title, discounted_price)")
+      .select("id, pickup_code, status, created_at, user_id, payment_intent_id, pickup_date, config_id, offers(title, discounted_price, pickup_start, pickup_end), surprise_bag_config(base_price, pickup_start, pickup_end)")
       .eq("restaurant_id", rest.id)
       .order("created_at", { ascending: false })
       .limit(200);

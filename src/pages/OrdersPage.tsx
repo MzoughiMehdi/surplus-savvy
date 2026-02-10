@@ -15,11 +15,18 @@ interface Reservation {
   status: string;
   pickup_code: string;
   created_at: string;
-  offer_id: string;
+  offer_id: string | null;
+  config_id: string | null;
+  pickup_date: string | null;
   restaurant_id: string;
   offers: {
     title: string;
     discounted_price: number;
+    pickup_start: string;
+    pickup_end: string;
+  } | null;
+  surprise_bag_config: {
+    base_price: number;
     pickup_start: string;
     pickup_end: string;
   } | null;
@@ -40,7 +47,7 @@ const OrdersPage = () => {
       if (!user) return [];
       const { data, error } = await supabase
         .from("reservations")
-        .select("*, offers(title, discounted_price, pickup_start, pickup_end), restaurants(name)")
+        .select("*, offers(title, discounted_price, pickup_start, pickup_end), surprise_bag_config(base_price, pickup_start, pickup_end), restaurants(name)")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -54,11 +61,11 @@ const OrdersPage = () => {
     return (
       <ReservationConfirmation
         pickupCode={selected.pickup_code}
-        offerTitle={selected.offers?.title ?? "Offre"}
+        offerTitle={selected.offers?.title ?? "Lot Anti-Gaspi"}
         restaurantName={selected.restaurants?.name ?? "Restaurant"}
-        pickupStart={selected.offers?.pickup_start ?? ""}
-        pickupEnd={selected.offers?.pickup_end ?? ""}
-        price={selected.offers?.discounted_price ?? 0}
+        pickupStart={(selected.offers?.pickup_start ?? selected.surprise_bag_config?.pickup_start ?? "").slice(0, 5)}
+        pickupEnd={(selected.offers?.pickup_end ?? selected.surprise_bag_config?.pickup_end ?? "").slice(0, 5)}
+        price={selected.offers?.discounted_price ?? (selected.surprise_bag_config ? Number((selected.surprise_bag_config.base_price * 0.4).toFixed(2)) : 0)}
         status={selected.status}
         onBack={() => setSelected(null)}
         reservationId={selected.id}
@@ -72,7 +79,16 @@ const OrdersPage = () => {
     accepted: { label: "Acceptée", variant: "default" },
     completed: { label: "Retirée", variant: "secondary" },
     cancelled: { label: "Annulée", variant: "destructive" },
+    expired: { label: "Expirée", variant: "destructive" },
   };
+
+  const today = new Date().toISOString().split("T")[0];
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+
+  const getTitle = (r: Reservation) => r.offers?.title ?? "Lot Anti-Gaspi";
+  const getPrice = (r: Reservation) => r.offers?.discounted_price ?? (r.surprise_bag_config ? Number((r.surprise_bag_config.base_price * 0.4).toFixed(2)) : 0);
+  const getPickupStart = (r: Reservation) => (r.offers?.pickup_start ?? r.surprise_bag_config?.pickup_start ?? "").slice(0, 5);
+  const getPickupEnd = (r: Reservation) => (r.offers?.pickup_end ?? r.surprise_bag_config?.pickup_end ?? "").slice(0, 5);
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -108,6 +124,9 @@ const OrdersPage = () => {
         <div className="space-y-3 px-5">
           {reservations.map((r) => {
             const sc = statusConfig[r.status] ?? statusConfig.confirmed;
+            const pickupDay = r.pickup_date;
+            const isTomorrow = pickupDay === tomorrow;
+            const isToday = pickupDay === today;
             return (
               <button
                 key={r.id}
@@ -118,7 +137,7 @@ const OrdersPage = () => {
                   <QrCode className="h-6 w-6 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-foreground">{r.offers?.title ?? "Offre"}</p>
+                  <p className="truncate text-sm font-semibold text-foreground">{getTitle(r)}</p>
                   <div className="flex items-center gap-1.5">
                     <p className="text-xs text-muted-foreground">{r.restaurants?.name ?? "Restaurant"}</p>
                     <button
@@ -128,13 +147,25 @@ const OrdersPage = () => {
                       <Heart className={`h-3.5 w-3.5 transition-colors ${isFavorite(r.restaurant_id) ? "fill-destructive text-destructive" : "text-muted-foreground"}`} />
                     </button>
                   </div>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    {pickupDay && (
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+                        {isTomorrow ? "Demain" : isToday ? "Aujourd'hui" : pickupDay}
+                      </Badge>
+                    )}
+                    {(getPickupStart(r) || getPickupEnd(r)) && (
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                        <Clock className="h-2.5 w-2.5" /> {getPickupStart(r)} – {getPickupEnd(r)}
+                      </span>
+                    )}
+                  </div>
                   <p className="mt-0.5 text-[10px] text-muted-foreground">
                     {formatDistanceToNow(new Date(r.created_at), { addSuffix: true, locale: fr })}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <Badge variant={sc.variant} className="text-[10px]">{sc.label}</Badge>
-                  <span className="text-sm font-bold text-primary">€{r.offers?.discounted_price ?? 0}</span>
+                  <span className="text-sm font-bold text-primary">€{getPrice(r).toFixed(2)}</span>
                 </div>
               </button>
             );
