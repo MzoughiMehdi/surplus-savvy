@@ -113,6 +113,7 @@ const ReservationConfirmation = ({
     accepted: { label: "Acceptée", color: "text-primary", bg: "bg-primary/10", icon: CheckCircle },
     completed: { label: "Retirée", color: "text-muted-foreground", bg: "bg-muted", icon: Package },
     cancelled: { label: "Annulée", color: "text-destructive", bg: "bg-destructive/10", icon: XCircle },
+    expired: { label: "Expirée", color: "text-destructive", bg: "bg-destructive/10", icon: XCircle },
   };
 
   const s = statusConfig[status as keyof typeof statusConfig] ?? statusConfig.confirmed;
@@ -130,7 +131,7 @@ const ReservationConfirmation = ({
           <StatusIcon className={`h-8 w-8 ${s.color}`} />
         </div>
         <h1 className="mt-4 font-display text-2xl font-bold text-foreground">
-          {status === "confirmed" ? "Réservation en attente" : status === "accepted" ? "Réservation acceptée !" : s.label}
+          {status === "confirmed" ? "Réservation en attente" : status === "accepted" ? "Réservation acceptée !" : status === "expired" ? "Réservation expirée" : s.label}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {status === "confirmed"
@@ -139,6 +140,8 @@ const ReservationConfirmation = ({
             ? "Présentez ce QR code au restaurant pour retirer votre commande"
             : status === "completed"
             ? "Vous avez bien récupéré votre commande"
+            : status === "expired"
+            ? "Cette réservation a expiré car elle n'a pas été confirmée à temps"
             : "Cette réservation a été annulée"}
         </p>
       </div>

@@ -707,6 +707,7 @@ export type Database = {
       }
     }
     Functions: {
+      expire_unconfirmed_reservations: { Args: never; Returns: undefined }
       generate_daily_offers: { Args: never; Returns: undefined }
       get_all_restaurant_ratings: {
         Args: never
