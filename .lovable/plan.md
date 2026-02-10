@@ -1,34 +1,31 @@
 
 
-# Correction : Checkout bloque sur les offres de demain
+# Correction : Offres de demain invisibles pour les utilisateurs non connectes
 
 ## Probleme
 
-L'URL de checkout pour une offre de demain est :
-`/checkout?offerId=&offerTitle=...&configId=62ab...&pickupDate=2026-02-11`
-
-`offerId` est vide car l'offre n'a pas encore ete generee. Or, la ligne 44 de `CheckoutPage.tsx` verifie :
-```
-if (!offerId || !amount)
-```
-
-Un `offerId` vide ("") est falsy en JavaScript, donc la page affiche "Parametres de paiement manquants" au lieu du formulaire Stripe.
+Les tables `surprise_bag_config` et `daily_overrides` n'ont pas de politique RLS permettant la lecture publique. Seuls les admins et les proprietaires de restaurants peuvent les consulter. Un utilisateur non connecte (invite) recoit donc une liste vide.
 
 ## Correction
 
-**Fichier** : `src/pages/CheckoutPage.tsx`, ligne 44
+Ajouter des politiques RLS `SELECT` publiques sur ces deux tables, similaires a ce qui existe deja pour la table `offers` et `restaurants` (qui sont lisibles par tous) :
 
-Modifier la condition pour accepter soit un `offerId` soit un `configId` (offres de demain) :
+### Migration SQL
 
-```typescript
-if ((!offerId && !configId) || !amount) {
+```sql
+-- Permettre a tous de lire les configs actives (pour afficher les offres de demain)
+CREATE POLICY "Public can view active configs"
+  ON surprise_bag_config FOR SELECT
+  USING (is_active = true);
+
+-- Permettre a tous de lire les overrides (pour filtrer les suspensions)
+CREATE POLICY "Public can view daily overrides"
+  ON daily_overrides FOR SELECT
+  USING (true);
 ```
 
-C'est exactement la meme logique que celle deja utilisee dans `create-payment/index.ts` ligne 38 :
-```typescript
-if ((!offerId && !configId) || !amount) throw new Error("Missing offerId/configId or amount");
-```
+Ces donnees ne sont pas sensibles : elles contiennent uniquement les creneaux horaires, quantites et prix des offres, exactement les memes informations deja visibles via la table `offers`.
 
-## Resume
+### Aucun changement de code
 
-Un seul changement, une seule ligne. Le reste du flux (create-payment, verify-payment) gere deja correctement le cas `configId` sans `offerId`.
+Le hook `useTomorrowOffers` fonctionne deja correctement. Le probleme est uniquement au niveau des permissions de la base de donnees.
