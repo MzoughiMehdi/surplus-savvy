@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useFavorites } from "@/hooks/useFavorites";
-import { Clock, QrCode, Package, Heart, ShoppingBag } from "lucide-react";
+import { Clock, QrCode, Package, Heart, ShoppingBag, CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import ReservationConfirmation from "@/components/ReservationConfirmation";
 import { useState } from "react";
@@ -124,7 +124,8 @@ const OrdersPage = () => {
         <div className="space-y-3 px-5">
           {reservations.map((r) => {
             const sc = statusConfig[r.status] ?? statusConfig.confirmed;
-            const pickupDay = r.pickup_date;
+            const pickupDay = r.pickup_date || r.created_at.split("T")[0];
+            const isActive = ["confirmed", "accepted"].includes(r.status);
             const isTomorrow = pickupDay === tomorrow;
             const isToday = pickupDay === today;
             return (
@@ -147,21 +148,21 @@ const OrdersPage = () => {
                       <Heart className={`h-3.5 w-3.5 transition-colors ${isFavorite(r.restaurant_id) ? "fill-destructive text-destructive" : "text-muted-foreground"}`} />
                     </button>
                   </div>
-                  <div className="mt-0.5 flex items-center gap-1.5">
-                    {pickupDay && (
-                      <Badge variant="outline" className="text-[9px] px-1.5 py-0">
-                        {isTomorrow ? "Demain" : isToday ? "Aujourd'hui" : pickupDay}
-                      </Badge>
-                    )}
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">
+                    Réservée le {new Date(r.created_at).toLocaleDateString("fr-FR")}
+                  </p>
+                  <div className="mt-0.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <CalendarDays className="h-2.5 w-2.5" />
+                    <span>Retrait :</span>
+                    {isActive && isToday && <Badge variant="outline" className="text-[9px] px-1.5 py-0">Aujourd'hui</Badge>}
+                    {isActive && isTomorrow && <Badge variant="outline" className="text-[9px] px-1.5 py-0">Demain</Badge>}
+                    {!isActive && <span>{new Date(pickupDay).toLocaleDateString("fr-FR")}</span>}
                     {(getPickupStart(r) || getPickupEnd(r)) && (
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                      <span className="flex items-center gap-0.5">
                         <Clock className="h-2.5 w-2.5" /> {getPickupStart(r)} – {getPickupEnd(r)}
                       </span>
                     )}
                   </div>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground">
-                    {formatDistanceToNow(new Date(r.created_at), { addSuffix: true, locale: fr })}
-                  </p>
                 </div>
                 <div className="flex flex-col items-end gap-1">
                   <Badge variant={sc.variant} className="text-[10px]">{sc.label}</Badge>
