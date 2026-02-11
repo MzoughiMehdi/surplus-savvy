@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.transfer-pending-payouts]
 verify_jwt = false
+
+[functions.create-connect-login-link]
+verify_jwt = false
