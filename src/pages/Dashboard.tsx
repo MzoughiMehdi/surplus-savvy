@@ -131,11 +131,12 @@ const ConnectSection = ({ restaurantId, highlight }: { restaurantId?: string; hi
       });
       if (error) throw error;
       if (data?.url) {
-        // Navigate in the same tab to avoid COOP blocking
-        window.location.href = data.url;
+        // Use noopener,noreferrer to avoid COOP blocking on Safari
+        window.open(data.url, "_blank", "noopener,noreferrer");
       }
     } catch {
       toast.error("Erreur lors de l'ouverture du dashboard Stripe");
+    } finally {
       setDashboardLoading(false);
     }
   };
