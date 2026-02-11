@@ -149,19 +149,17 @@ const ReservationCard = ({ r, fetchData }: { r: ReservationData; fetchData: () =
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-semibold text-foreground">{title}</p>
-          <p className="mt-0.5 text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString("fr-FR")}</p>
-          <div className="mt-1 flex items-center gap-2">
+          <p className="mt-0.5 text-[10px] text-muted-foreground">Réservée le {new Date(r.created_at).toLocaleDateString("fr-FR")}</p>
+          <div className="mt-1.5 flex items-center gap-2">
             <CalendarDays className="h-3 w-3 text-muted-foreground" />
+            <span className="text-[10px] text-muted-foreground">Retrait :</span>
             <Badge variant={isTomorrow ? "outline" : "secondary"} className="text-[10px]">
               {isTomorrow ? "Demain" : isToday ? "Aujourd'hui" : pickupDay}
             </Badge>
-          </div>
-          {(pickupStart || pickupEnd) && (
-            <div className="mt-1 flex items-center gap-1.5">
-              <Clock className="h-3 w-3 text-muted-foreground" />
+            {(pickupStart || pickupEnd) && (
               <span className="text-[10px] text-muted-foreground">{pickupStart} – {pickupEnd}</span>
-            </div>
-          )}
+            )}
+          </div>
           <div className="mt-1 flex items-center gap-2">
             <QrCode className="h-3 w-3 text-muted-foreground" />
             <span className="font-mono text-xs font-bold text-primary">{r.pickup_code.toUpperCase()}</span>
@@ -172,7 +170,8 @@ const ReservationCard = ({ r, fetchData }: { r: ReservationData; fetchData: () =
             variant={
               r.status === "confirmed" ? "default" :
               r.status === "accepted" ? "default" :
-              r.status === "completed" ? "secondary" : "destructive"
+              r.status === "completed" ? "secondary" :
+              r.status === "expired" ? "destructive" : "destructive"
             }
             className="text-[10px]"
           >
@@ -366,7 +365,7 @@ const Dashboard = () => {
 
   const reservationCounts: Record<string, number> = {};
   reservations.forEach((r) => {
-    const date = r.created_at.split("T")[0];
+    const date = r.pickup_date || r.created_at.split("T")[0];
     reservationCounts[date] = (reservationCounts[date] || 0) + 1;
   });
 
@@ -382,7 +381,11 @@ const Dashboard = () => {
     ? Math.max(0, Math.ceil((new Date(restaurant.trial_ends_at).getTime() - Date.now()) / 86400000))
     : 0;
 
-  const todayReservations = reservations.filter((r) => r.created_at.split("T")[0] === new Date().toISOString().split("T")[0]);
+  const today = new Date().toISOString().split("T")[0];
+  const todayReservations = reservations.filter((r) => {
+    const pickupDay = r.pickup_date || r.created_at.split("T")[0];
+    return pickupDay === today;
+  });
   const pendingReservations = reservations.filter((r) => r.status === "confirmed");
   const orderReservations = reservations.filter((r) => r.status === "accepted" || r.status === "completed");
 
