@@ -410,7 +410,7 @@ const Dashboard = () => {
         </div>
         <div className="flex items-center gap-2">
           <NotificationBell />
-          <button onClick={() => { signOut(); navigate("/"); }} className="rounded-full bg-secondary p-2.5">
+          <button onClick={async () => { await signOut(); navigate("/auth"); }} className="rounded-full bg-secondary p-2.5">
             <LogOut className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
