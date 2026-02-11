@@ -98,13 +98,23 @@ const ConnectSection = ({ restaurantId, highlight }: { restaurantId?: string; hi
   const handleSetupConnect = async () => {
     if (!restaurantId) return;
     setConnectLoading(true);
+    const newWindow = window.open("about:blank", "_blank");
     try {
       const { data, error } = await supabase.functions.invoke("create-connect-account", {
         body: { restaurantId },
       });
       if (error) throw error;
-      if (data?.url) window.location.href = data.url;
+      if (data?.url) {
+        if (newWindow) {
+          newWindow.location.href = data.url;
+        } else {
+          window.location.href = data.url;
+        }
+      } else {
+        newWindow?.close();
+      }
     } catch {
+      newWindow?.close();
       toast.error("Erreur lors de la configuration");
     } finally {
       setConnectLoading(false);
