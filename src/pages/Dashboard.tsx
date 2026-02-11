@@ -72,6 +72,7 @@ const MerchantBottomNav = ({ active, onNavigate }: { active: TabId; onNavigate: 
 
 const ConnectSection = ({ restaurantId, highlight }: { restaurantId?: string; highlight?: boolean }) => {
   const [connectLoading, setConnectLoading] = useState(false);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
 
   const { data: connectStatus } = useQuery({
     queryKey: ["connect-status", restaurantId],
@@ -121,6 +122,32 @@ const ConnectSection = ({ restaurantId, highlight }: { restaurantId?: string; hi
     }
   };
 
+  const handleOpenStripeDashboard = async () => {
+    if (!restaurantId) return;
+    setDashboardLoading(true);
+    const newWindow = window.open("about:blank", "_blank");
+    try {
+      const { data, error } = await supabase.functions.invoke("create-connect-login-link", {
+        body: { restaurantId },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        if (newWindow) {
+          newWindow.location.href = data.url;
+        } else {
+          window.location.href = data.url;
+        }
+      } else {
+        newWindow?.close();
+      }
+    } catch {
+      newWindow?.close();
+      toast.error("Erreur lors de l'ouverture du dashboard Stripe");
+    } finally {
+      setDashboardLoading(false);
+    }
+  };
+
   return (
     <div className={`mt-4 rounded-xl border p-4 shadow-sm ${highlight && !connectStatus?.chargesEnabled ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
       <div className="flex items-center justify-between">
@@ -139,7 +166,14 @@ const ConnectSection = ({ restaurantId, highlight }: { restaurantId?: string; hi
           )}
         </div>
         {connectStatus?.chargesEnabled ? (
-          <Badge variant="secondary" className="text-[10px]">Actif</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="text-[10px]">Actif</Badge>
+            <Button size="sm" variant="ghost" onClick={handleOpenStripeDashboard} disabled={dashboardLoading} className="h-7 px-2 text-[10px]">
+              {dashboardLoading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+              Voir mon compte
+              <ExternalLink className="ml-1 h-3 w-3" />
+            </Button>
+          </div>
         ) : (
           <Button size="sm" onClick={handleSetupConnect} disabled={connectLoading}>
             {connectLoading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
