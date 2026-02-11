@@ -1,52 +1,65 @@
 
+# Corrections : affichage consommateur avec deux dates et badges dynamiques
 
-# Fix: Admin access race condition
+## Probleme 1 : Expiration
 
-## Problem
+Les reservations du 11/02 avec `pickup_end = 23:00` expirent a 22:30 UTC (23:30 Paris). Le cron tourne et la fonction est correcte -- elles expireront automatiquement dans les prochaines minutes. Pas de bug ici.
 
-`AdminLayout` redirects to `/` when `!loading && !isAdmin`. However, `loading` (auth session) resolves before `profileLoading` (role fetch) completes. This causes the admin to be redirected before `isAdmin` becomes `true`.
+## Probleme 2 : Affichage consommateur (OrdersPage)
 
-## Solution
+Actuellement, la carte de reservation affiche :
+- Le titre
+- Le nom du restaurant
+- Un badge Aujourd'hui/Demain (meme pour les commandes terminees/expirees)
+- "il y a X heures" (date relative de creation)
 
-Update `AdminLayout` to also check `profileLoading` before making the redirect decision.
+Il faut :
+- Afficher **deux dates** : "Reservee le JJ/MM/AAAA" + "Retrait : [badge] HH:MM - HH:MM"
+- Le badge Aujourd'hui/Demain ne s'affiche que pour les statuts actifs (`confirmed`, `accepted`)
+- Pour les statuts termines (`completed`, `expired`, `cancelled`), afficher la date de retrait en clair (JJ/MM/AAAA) sans badge
 
-### File: `src/pages/admin/AdminLayout.tsx`
+## Modifications prevues
 
-**Change 1** - Import `profileLoading` from useAuth (line 31):
+### Fichier `src/pages/OrdersPage.tsx`
 
-```typescript
-const { user, isAdmin, loading, profileLoading, signOut } = useAuth();
+**Remplacement du bloc d'affichage des dates (lignes 150-164)** :
+
+Avant :
+```
+badge Aujourd'hui/Demain
+creneau horaire
+"il y a X heures"
 ```
 
-**Change 2** - Update the useEffect guard (lines 35-39):
-
-```typescript
-useEffect(() => {
-  if (!loading && !profileLoading && (!user || !isAdmin)) {
-    navigate("/");
-  }
-}, [user, isAdmin, loading, profileLoading, navigate]);
+Apres :
+```
+Reservee le 11/02/2026
+Retrait : [Aujourd'hui] 18:00 - 20:00    (si statut actif)
+Retrait : 11/02/2026 - 18:00 - 20:00     (si statut termine)
 ```
 
-**Change 3** - Update the loading check (lines 41-47):
-
+Logique :
 ```typescript
-if (loading || profileLoading) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <p className="text-muted-foreground">Chargement...</p>
-    </div>
-  );
-}
+const isActive = ["confirmed", "accepted"].includes(r.status);
+const pickupDay = r.pickup_date || r.created_at.split("T")[0];
+
+// Ligne 1 : date de reservation
+<p>Reservee le {new Date(r.created_at).toLocaleDateString("fr-FR")}</p>
+
+// Ligne 2 : retrait avec badge conditionnel
+<div>
+  <CalendarDays /> Retrait :
+  {isActive && isTomorrow ? <Badge>Demain</Badge> : null}
+  {isActive && isToday ? <Badge>Aujourd'hui</Badge> : null}
+  {!isActive ? <span>{new Date(pickupDay).toLocaleDateString("fr-FR")}</span> : null}
+  <Clock /> {pickupStart} - {pickupEnd}
+</div>
 ```
 
-This ensures AdminLayout waits for both the auth session AND the profile/role fetch to complete before deciding whether to redirect or render.
+**Import a ajouter** : `CalendarDays` depuis `lucide-react`
 
-## Files modified
+## Resume
 
-| File | Change |
-|------|--------|
-| `src/pages/admin/AdminLayout.tsx` | Add `profileLoading` to guard logic (3 small edits) |
-
-No other changes needed.
-
+| Fichier | Changement |
+|---------|-----------|
+| `src/pages/OrdersPage.tsx` | Deux dates (reservation + retrait), badge Aujourd'hui/Demain uniquement pour statuts actifs, date en clair pour statuts termines |
