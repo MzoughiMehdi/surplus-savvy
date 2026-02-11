@@ -1,49 +1,49 @@
 
 
-# Ajouter un lien vers le compte Stripe du commercant
+# Corriger "navigation was blocked" sur le bouton "Voir mon compte"
+
+## Probleme
+
+L'appel `window.open("about:blank", "_blank")` est bloque par le sandbox de l'iframe de previsualisation Lovable. L'edge function fonctionne correctement et retourne bien l'URL (`https://connect.stripe.com/express/...`).
+
+## Solution
+
+Remplacer l'approche `window.open` pre-ouverture par une approche en deux temps :
+1. Appeler l'edge function pour obtenir l'URL
+2. Creer un element `<a>` temporaire avec `target="_blank"` et le cliquer programmatiquement
+
+Cette methode est generalement mieux supportee dans les contextes iframe sandboxes.
+
+Si meme cette approche est bloquee (sandbox strict), on ajoutera un fallback qui affiche l'URL dans un toast cliquable.
 
 ## Modification
 
-### `src/pages/Dashboard.tsx` - Section "Paiements" (lignes 141-148)
+### `src/pages/Dashboard.tsx` - Fonction `handleOpenStripeDashboard`
 
-Quand le compte Connect est actif (badge "Actif"), ajouter un lien "Voir mon compte" a cote du badge qui ouvre le dashboard Stripe Express du commercant dans un nouvel onglet.
+```typescript
+// AVANT :
+const newWindow = window.open("about:blank", "_blank");
+// ... puis newWindow.location.href = data.url
 
-L'URL du dashboard Stripe Express est : `https://dashboard.stripe.com/express/login` -- mais pour un acces direct, Stripe fournit une API "Login Link". On va plutot utiliser un lien simple vers `https://connect.stripe.com/express_login` qui redirige automatiquement le commercant vers son dashboard Express.
-
-Alternativement, pour une meilleure UX, on peut creer une edge function qui genere un lien de connexion temporaire via l'API Stripe (`stripe.accounts.createLoginLink(accountId)`).
-
-### Approche retenue : Edge function pour lien securise
-
-**1. Nouvelle edge function `create-connect-login-link/index.ts`**
-
-- Recoit le `restaurantId` dans le body
-- Recupere le `stripe_account_id` du restaurant en base
-- Appelle `stripe.accounts.createLoginLink(stripeAccountId)` pour generer un lien temporaire
-- Renvoie l'URL
-
-**2. `src/pages/Dashboard.tsx` - Lignes 141-148**
-
-Remplacer le badge "Actif" seul par un badge + un bouton lien :
-
-```text
-AVANT :
-  <Badge variant="secondary">Actif</Badge>
-
-APRES :
-  <div className="flex items-center gap-2">
-    <Badge variant="secondary">Actif</Badge>
-    <Button size="sm" variant="ghost" onClick={handleOpenStripeDashboard}>
-      Voir mon compte <ExternalLink />
-    </Button>
-  </div>
+// APRES :
+const { data, error } = await supabase.functions.invoke("create-connect-login-link", {
+  body: { restaurantId },
+});
+if (error) throw error;
+if (data?.url) {
+  const link = document.createElement("a");
+  link.href = data.url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
 ```
 
-La fonction `handleOpenStripeDashboard` utilisera la meme technique que `handleSetupConnect` : ouvrir une fenetre synchrone puis rediriger vers l'URL recue de l'edge function.
+## Fichier modifie
 
-## Resume
-
-| Modification | Fichier |
+| Fichier | Changement |
 |---|---|
-| Nouvelle edge function pour generer un login link Stripe | `supabase/functions/create-connect-login-link/index.ts` |
-| Ajout du bouton "Voir mon compte" a cote du badge Actif | `src/pages/Dashboard.tsx` |
+| `src/pages/Dashboard.tsx` | Remplacer `window.open` par un clic programmatique sur un lien `<a>` |
 
