@@ -1,39 +1,70 @@
 
 
-# Corriger la redirection apres deconnexion du compte commercant
+# Corriger le decalage de date dans le calendrier du Dashboard
 
 ## Probleme
 
-Dans `src/pages/Dashboard.tsx` (ligne 413), le bouton de deconnexion fait :
+Quand une reservation n'a pas de `pickup_date` (reservations du jour), le code utilise `r.created_at.split("T")[0]` pour extraire la date. Cette operation decoupe la date UTC brute, sans conversion au fuseau Europe/Paris.
 
-```typescript
-onClick={() => { signOut(); navigate("/"); }}
-```
-
-Apres la deconnexion, le commercant est redirige vers `/` (la page d'accueil WelcomePage) qui affiche les boutons d'inscription et de creation de compte. C'est deroutant car le commercant s'attend a atterrir sur une page de connexion.
+Exemple concret : la reservation creee a `2026-02-11T23:03:32Z` (UTC) correspond en realite au **12 fevrier a 00:03 heure de Paris**, mais le code affiche le **11 fevrier**.
 
 ## Solution
 
-Modifier la redirection apres deconnexion pour envoyer vers `/auth` (la page de connexion) au lieu de `/` (la page d'accueil).
+Creer une fonction utilitaire qui convertit un timestamp UTC en date YYYY-MM-DD au fuseau Europe/Paris, et l'utiliser partout ou `created_at` est utilise comme fallback pour la date.
 
-De plus, `signOut()` est appele sans `await`, ce qui peut causer des problemes de timing avec la navigation.
+## Modifications
 
-### Fichier : `src/pages/Dashboard.tsx` (ligne 413)
+### 1. `src/lib/dateUtils.ts` - Nouvelle fonction
+
+Ajouter une fonction `toParisDateString(isoTimestamp: string): string` qui convertit un timestamp ISO en date locale Paris :
+
+```typescript
+export function toParisDateString(isoTimestamp: string): string {
+  return new Date(isoTimestamp).toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+}
+```
+
+### 2. `src/pages/Dashboard.tsx` - Deux corrections
+
+**Ligne 379** - Calcul des `reservationCounts` pour le calendrier :
 
 ```typescript
 // AVANT :
-onClick={() => { signOut(); navigate("/"); }}
+const date = r.pickup_date || r.created_at.split("T")[0];
 
 // APRES :
-onClick={async () => { await signOut(); navigate("/auth"); }}
+const date = r.pickup_date || toParisDateString(r.created_at);
 ```
 
-Cela garantit que :
-1. La session est bien detruite avant la navigation
-2. Le commercant atterrit sur la page de connexion, pas sur la page d'accueil grand public
+**Ligne 397** - Filtrage des reservations du jour :
 
-## Fichiers modifies
+```typescript
+// AVANT :
+const pickupDay = r.pickup_date || r.created_at.split("T")[0];
+
+// APRES :
+const pickupDay = r.pickup_date || toParisDateString(r.created_at);
+```
+
+**Ligne 149** - Dans le composant `ReservationCard` :
+
+```typescript
+// AVANT :
+const pickupDay = r.pickup_date || today;
+
+// APRES :
+const pickupDay = r.pickup_date || toParisDateString(r.created_at);
+```
+
+Ajouter l'import de `toParisDateString` depuis `@/lib/dateUtils`.
+
+## Resume
 
 | Fichier | Changement |
 |---------|-----------|
-| `src/pages/Dashboard.tsx` | Redirection vers `/auth` au lieu de `/`, et `await` sur `signOut()` |
+| `src/lib/dateUtils.ts` | Ajout de `toParisDateString()` |
+| `src/pages/Dashboard.tsx` | 3 remplacements de `split("T")[0]` / `today` par `toParisDateString()` |
+
+## Impact
+
+Toutes les reservations sans `pickup_date` seront desormais affichees a la bonne date selon le fuseau Europe/Paris, coherent avec le reste de l'application.
