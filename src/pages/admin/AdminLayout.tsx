@@ -28,17 +28,17 @@ const navItems = [
 ];
 
 const AdminLayout = () => {
-  const { user, isAdmin, loading, signOut } = useAuth();
+  const { user, isAdmin, loading, profileLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    if (!loading && (!user || !isAdmin)) {
+    if (!loading && !profileLoading && (!user || !isAdmin)) {
       navigate("/");
     }
-  }, [user, isAdmin, loading, navigate]);
+  }, [user, isAdmin, loading, profileLoading, navigate]);
 
-  if (loading) {
+  if (loading || profileLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <p className="text-muted-foreground">Chargement...</p>
