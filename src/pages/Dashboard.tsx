@@ -131,8 +131,27 @@ const ConnectSection = ({ restaurantId, highlight }: { restaurantId?: string; hi
       });
       if (error) throw error;
       if (data?.url) {
-        // Use noopener,noreferrer to avoid COOP blocking on Safari
-        window.open(data.url, "_blank", "noopener,noreferrer");
+        // Try window.open first, fallback to showing clickable link
+        const opened = window.open(data.url, "_blank", "noopener,noreferrer");
+        if (!opened) {
+          // Sandbox blocks window.open — show a clickable toast with the link
+          toast.info("Cliquez sur le lien ci-dessous pour accéder à votre compte Stripe", {
+            duration: 30000,
+            description: data.url.substring(0, 60) + "...",
+            action: {
+              label: "Ouvrir",
+              onClick: () => {
+                const a = document.createElement("a");
+                a.href = data.url;
+                a.target = "_blank";
+                a.rel = "noopener noreferrer";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+              },
+            },
+          });
+        }
       }
     } catch {
       toast.error("Erreur lors de l'ouverture du dashboard Stripe");
