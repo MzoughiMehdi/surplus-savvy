@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getParisDate, getParisTomorrow } from "@/lib/dateUtils";
+import { getParisDate, getParisTomorrow, toParisDateString } from "@/lib/dateUtils";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -146,7 +146,7 @@ const ConnectSection = ({ restaurantId, highlight }: { restaurantId?: string; hi
 const ReservationCard = ({ r, fetchData }: { r: ReservationData; fetchData: () => void }) => {
   const today = getParisDate();
   const tomorrow = getParisTomorrow();
-  const pickupDay = r.pickup_date || today;
+  const pickupDay = r.pickup_date || toParisDateString(r.created_at);
   const isTomorrow = pickupDay === tomorrow;
   const isToday = pickupDay <= today;
 
@@ -376,7 +376,7 @@ const Dashboard = () => {
 
   const reservationCounts: Record<string, number> = {};
   reservations.forEach((r) => {
-    const date = r.pickup_date || r.created_at.split("T")[0];
+    const date = r.pickup_date || toParisDateString(r.created_at);
     reservationCounts[date] = (reservationCounts[date] || 0) + 1;
   });
 
@@ -394,7 +394,7 @@ const Dashboard = () => {
 
   const today = getParisDate();
   const todayReservations = reservations.filter((r) => {
-    const pickupDay = r.pickup_date || r.created_at.split("T")[0];
+    const pickupDay = r.pickup_date || toParisDateString(r.created_at);
     return pickupDay === today;
   });
   const pendingReservations = reservations.filter((r) => r.status === "confirmed");
