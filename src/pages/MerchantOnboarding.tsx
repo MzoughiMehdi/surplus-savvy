@@ -118,20 +118,8 @@ const MerchantOnboarding = () => {
         pickup_end: bagPickupEnd,
       });
 
-      // Créer le compte Stripe Connect
-      const { data: connectData, error: connectError } = await supabase.functions.invoke(
-        "create-connect-account",
-        { body: { restaurantId: newRest.id } }
-      );
-
-      if (connectError || !connectData?.url) {
-        toast.success("Restaurant enregistré ! Vous pourrez configurer vos paiements plus tard.");
-        navigate("/dashboard");
-        return;
-      }
-
-      toast.success("Restaurant enregistré ! Configurez vos informations de paiement...");
-      window.location.href = connectData.url;
+      toast.success("Restaurant enregistré ! Configurez vos paiements depuis votre tableau de bord.");
+      navigate("/dashboard");
     } catch (err: any) {
       toast.error(err.message || "Une erreur est survenue");
     } finally { setLoading(false); }
@@ -371,10 +359,10 @@ const MerchantOnboarding = () => {
             </div>
             <div className="rounded-xl bg-card p-4 shadow-sm">
               <p className="text-xs text-muted-foreground">Prochaine étape</p>
-              <p className="text-sm font-semibold text-foreground">Configuration des paiements</p>
+              <p className="text-sm font-semibold text-foreground">Validation & paiements</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Vous allez être redirigé vers notre partenaire de paiement pour configurer
-                la réception de vos revenus. Votre compte sera ensuite validé par un administrateur.
+                Vous pourrez configurer la réception de vos paiements à tout moment
+                depuis votre tableau de bord. Votre compte sera validé par un administrateur.
               </p>
             </div>
           </div>
