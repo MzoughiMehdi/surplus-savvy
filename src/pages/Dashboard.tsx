@@ -103,7 +103,7 @@ const ConnectSection = ({ restaurantId, highlight }: { restaurantId?: string; hi
         body: { restaurantId },
       });
       if (error) throw error;
-      if (data?.url) window.open(data.url, "_blank");
+      if (data?.url) window.location.href = data.url;
     } catch {
       toast.error("Erreur lors de la configuration");
     } finally {
