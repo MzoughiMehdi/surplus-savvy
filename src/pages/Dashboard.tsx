@@ -131,24 +131,11 @@ const ConnectSection = ({ restaurantId, highlight }: { restaurantId?: string; hi
       });
       if (error) throw error;
       if (data?.url) {
-        // Try window.open first
-        const opened = window.open(data.url, "_blank");
-        if (!opened) {
-          // Fallback: copy to clipboard + show toast with link
-          await navigator.clipboard.writeText(data.url).catch(() => {});
-          toast.info("Lien copié ! Ouvrez-le dans un nouvel onglet", {
-            description: data.url,
-            duration: 15000,
-            action: {
-              label: "Ouvrir",
-              onClick: () => window.open(data.url, "_blank"),
-            },
-          });
-        }
+        // Navigate in the same tab to avoid COOP blocking
+        window.location.href = data.url;
       }
     } catch {
       toast.error("Erreur lors de l'ouverture du dashboard Stripe");
-    } finally {
       setDashboardLoading(false);
     }
   };
