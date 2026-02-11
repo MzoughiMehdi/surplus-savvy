@@ -24,6 +24,7 @@ interface RestaurantData {
   trial_ends_at: string;
   status: string;
   image_url: string | null;
+  stripe_account_id: string | null;
 }
 
 interface ReservationData {
@@ -69,7 +70,7 @@ const MerchantBottomNav = ({ active, onNavigate }: { active: TabId; onNavigate: 
   </nav>
 );
 
-const ConnectSection = ({ restaurantId }: { restaurantId?: string }) => {
+const ConnectSection = ({ restaurantId, highlight }: { restaurantId?: string; highlight?: boolean }) => {
   const [connectLoading, setConnectLoading] = useState(false);
 
   const { data: connectStatus } = useQuery({
@@ -79,7 +80,16 @@ const ConnectSection = ({ restaurantId }: { restaurantId?: string }) => {
         body: { restaurantId },
       });
       if (error) throw error;
-      return data as { connected: boolean; chargesEnabled: boolean };
+      const status = data as { connected: boolean; chargesEnabled: boolean };
+
+      // Auto-transfer pending payouts when Connect becomes active
+      if (status.chargesEnabled) {
+        supabase.functions.invoke("transfer-pending-payouts", {
+          body: { restaurantId },
+        }).catch(() => {});
+      }
+
+      return status;
     },
     enabled: !!restaurantId,
     refetchInterval: 30000,
@@ -102,7 +112,7 @@ const ConnectSection = ({ restaurantId }: { restaurantId?: string }) => {
   };
 
   return (
-    <div className="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+    <div className={`mt-4 rounded-xl border p-4 shadow-sm ${highlight && !connectStatus?.chargesEnabled ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -451,7 +461,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <ConnectSection restaurantId={restaurant?.id} />
+          <ConnectSection restaurantId={restaurant?.id} highlight={!restaurant?.stripe_account_id} />
 
           {restaurant?.status === "pending" && (
             <div className="mt-4 rounded-xl bg-warning/10 p-4">
