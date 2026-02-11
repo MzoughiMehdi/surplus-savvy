@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getParisDate } from "@/lib/dateUtils";
 
 export interface Offer {
   id: string;
@@ -46,7 +47,7 @@ export const useOffers = () => {
       await supabase.rpc('generate_daily_offers');
       hasGenerated = true;
     }
-    const today = new Date().toISOString().split("T")[0];
+    const today = getParisDate();
 
     const { data, error } = await supabase
       .from("offers")
