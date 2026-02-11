@@ -1,65 +1,72 @@
 
-# Corrections : affichage consommateur avec deux dates et badges dynamiques
+# Passer toute l'application sur l'heure de Paris (Europe/Paris)
 
-## Probleme 1 : Expiration
+## Probleme
 
-Les reservations du 11/02 avec `pickup_end = 23:00` expirent a 22:30 UTC (23:30 Paris). Le cron tourne et la fonction est correcte -- elles expireront automatiquement dans les prochaines minutes. Pas de bug ici.
+Partout dans le code, les dates "aujourd'hui" et "demain" sont calculees en UTC :
+- **Frontend** : `new Date().toISOString().split("T")[0]` retourne la date UTC. Entre minuit et 2h du matin heure de Paris, ca donne la date de la veille.
+- **Backend SQL** : `CURRENT_DATE` et `NOW()` utilisent le fuseau horaire du serveur (UTC). Les offres sont generees et les reservations expirent sur la base de l'heure UTC.
 
-## Probleme 2 : Affichage consommateur (OrdersPage)
+## Solution
 
-Actuellement, la carte de reservation affiche :
-- Le titre
-- Le nom du restaurant
-- Un badge Aujourd'hui/Demain (meme pour les commandes terminees/expirees)
-- "il y a X heures" (date relative de creation)
+### 1. Creer une fonction utilitaire `getParisDate()` (nouveau fichier)
 
-Il faut :
-- Afficher **deux dates** : "Reservee le JJ/MM/AAAA" + "Retrait : [badge] HH:MM - HH:MM"
-- Le badge Aujourd'hui/Demain ne s'affiche que pour les statuts actifs (`confirmed`, `accepted`)
-- Pour les statuts termines (`completed`, `expired`, `cancelled`), afficher la date de retrait en clair (JJ/MM/AAAA) sans badge
+**Fichier : `src/lib/dateUtils.ts`**
 
-## Modifications prevues
-
-### Fichier `src/pages/OrdersPage.tsx`
-
-**Remplacement du bloc d'affichage des dates (lignes 150-164)** :
-
-Avant :
-```
-badge Aujourd'hui/Demain
-creneau horaire
-"il y a X heures"
-```
-
-Apres :
-```
-Reservee le 11/02/2026
-Retrait : [Aujourd'hui] 18:00 - 20:00    (si statut actif)
-Retrait : 11/02/2026 - 18:00 - 20:00     (si statut termine)
-```
-
-Logique :
 ```typescript
-const isActive = ["confirmed", "accepted"].includes(r.status);
-const pickupDay = r.pickup_date || r.created_at.split("T")[0];
+export function getParisDate(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+  // Retourne "YYYY-MM-DD" en heure de Paris
+}
 
-// Ligne 1 : date de reservation
-<p>Reservee le {new Date(r.created_at).toLocaleDateString("fr-FR")}</p>
-
-// Ligne 2 : retrait avec badge conditionnel
-<div>
-  <CalendarDays /> Retrait :
-  {isActive && isTomorrow ? <Badge>Demain</Badge> : null}
-  {isActive && isToday ? <Badge>Aujourd'hui</Badge> : null}
-  {!isActive ? <span>{new Date(pickupDay).toLocaleDateString("fr-FR")}</span> : null}
-  <Clock /> {pickupStart} - {pickupEnd}
-</div>
+export function getParisTomorrow(): string {
+  const d = new Date(getParisDate() + "T12:00:00");
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split("T")[0];
+}
 ```
 
-**Import a ajouter** : `CalendarDays` depuis `lucide-react`
+`toLocaleDateString("en-CA")` retourne le format ISO `YYYY-MM-DD` en tenant compte du fuseau horaire specifie.
 
-## Resume
+### 2. Remplacer tous les calculs de date cote frontend
 
-| Fichier | Changement |
-|---------|-----------|
-| `src/pages/OrdersPage.tsx` | Deux dates (reservation + retrait), badge Aujourd'hui/Demain uniquement pour statuts actifs, date en clair pour statuts termines |
+| Fichier | Ligne(s) | Avant | Apres |
+|---------|----------|-------|-------|
+| `src/pages/OrdersPage.tsx` | 85-86 | `new Date().toISOString().split("T")[0]` | `getParisDate()` / `getParisTomorrow()` |
+| `src/pages/Dashboard.tsx` | 136-137 | idem | idem |
+| `src/pages/Dashboard.tsx` | 384 | idem | idem |
+| `src/hooks/useOffers.ts` | 49 | idem | `getParisDate()` |
+| `src/hooks/useSurpriseBagConfig.ts` | 34 | idem | `getParisDate()` |
+| `src/hooks/useTomorrowOffers.ts` | 11-13 | `new Date()` + `toISOString` | `getParisTomorrow()` |
+| `src/components/SurpriseBagCalendar.tsx` | 54 | idem | `getParisDate()` |
+
+Chaque fichier importera `getParisDate` et/ou `getParisTomorrow` depuis `@/lib/dateUtils`.
+
+### 3. Corriger les fonctions SQL (migration)
+
+Les deux fonctions SQL (`generate_daily_offers` et `expire_unconfirmed_reservations`) utilisent `CURRENT_DATE` et `NOW()` qui sont en UTC. On les corrige pour utiliser le fuseau Paris :
+
+```sql
+-- generate_daily_offers : remplacer CURRENT_DATE par
+(CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')::date
+
+-- expire_unconfirmed_reservations : remplacer NOW() par
+NOW() AT TIME ZONE 'Europe/Paris'
+-- et CURRENT_DATE par
+(CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Paris')::date
+```
+
+Cela garantit que les offres sont generees a minuit heure de Paris et que les expirations sont calculees en heure de Paris.
+
+## Resume des fichiers modifies
+
+| Fichier | Type |
+|---------|------|
+| `src/lib/dateUtils.ts` | Nouveau (utilitaire) |
+| `src/pages/OrdersPage.tsx` | 2 lignes |
+| `src/pages/Dashboard.tsx` | 3 lignes |
+| `src/hooks/useOffers.ts` | 1 ligne |
+| `src/hooks/useSurpriseBagConfig.ts` | 1 ligne |
+| `src/hooks/useTomorrowOffers.ts` | 2 lignes |
+| `src/components/SurpriseBagCalendar.tsx` | 1 ligne |
+| Migration SQL | 2 fonctions mises a jour |
