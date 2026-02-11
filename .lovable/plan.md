@@ -1,103 +1,73 @@
 
-# Corriger la page blanche et integrer Stripe Connect dans l'onboarding
 
-## Probleme
+# Rendre Stripe Connect optionnel dans l'onboarding
 
-Apres avoir clique sur "Valider l'inscription", le code appelle `create-checkout` (abonnement Stripe) puis fait `window.location.href = data.url` pour rediriger vers une page de paiement externe. Cette redirection cause une page blanche. De plus, le compte Stripe Connect du commercant n'est pas cree pendant l'onboarding, ce qui signifie qu'il ne sera pas pret a recevoir des paiements meme apres validation admin.
+## Contexte
 
-## Solution
+Actuellement, l'onboarding redirige le commercant vers Stripe Connect immediatement apres la creation du restaurant. Le commercant doit pouvoir **choisir** de configurer ses paiements plus tard, depuis son tableau de bord (la section "Paiements" existe deja dans le Dashboard via `ConnectSection`).
 
-Remplacer la redirection vers Stripe Checkout (abonnement) par la creation du compte Stripe Connect, puis rediriger vers le formulaire d'onboarding Stripe Connect. Ainsi, a la fin de l'inscription :
-
-1. Le restaurant est cree en base (statut `pending`)
-2. Le compte Stripe Connect Express est cree via l'edge function `create-connect-account`
-3. Le commercant est redirige vers le formulaire Stripe Connect pour renseigner ses informations bancaires
-4. Au retour de Stripe, il arrive sur `/dashboard` avec le bandeau "En attente de validation"
-5. Des que l'admin approuve le restaurant, le commercant est immediatement operationnel pour recevoir les paiements
+Les paiements captures avant la configuration de Stripe Connect sont stockes sur le compte plateforme. Quand le commercant configure son compte Connect, les reversements en attente doivent lui etre transferes.
 
 ## Modifications
 
-### 1. `src/pages/MerchantOnboarding.tsx` - handleSubmit (lignes 121-131)
+### 1. `src/pages/MerchantOnboarding.tsx` - Supprimer l'appel Stripe Connect
 
-Remplacer l'appel a `create-checkout` par un appel a `create-connect-account` :
+Remplacer l'appel a `create-connect-account` + redirection par une simple navigation vers `/dashboard` :
 
 ```typescript
-// AVANT :
-const { data, error: checkoutError } = await supabase.functions.invoke("create-checkout", {
-  body: { priceId: MERCHANT_PLAN.price_id },
-});
-if (checkoutError || !data?.url) {
-  toast.success("Restaurant enregistré !");
-  navigate("/dashboard");
-  return;
-}
-toast.success("Restaurant enregistré ! Redirection vers le paiement...");
-window.location.href = data.url;
-
-// APRES :
-// Creer le compte Stripe Connect
+// AVANT (lignes 121-134) :
 const { data: connectData, error: connectError } = await supabase.functions.invoke(
-  "create-connect-account",
-  { body: { restaurantId: newRest.id } }
+  "create-connect-account", ...
 );
-
-if (connectError || !connectData?.url) {
-  // Fallback : si Stripe Connect echoue, on redirige quand meme
-  toast.success("Restaurant enregistré ! Vous pourrez configurer vos paiements plus tard.");
-  navigate("/dashboard");
-  return;
-}
-
-toast.success("Restaurant enregistré ! Configurez vos informations de paiement...");
+...
 window.location.href = connectData.url;
-```
-
-La difference clef : la redirection vers Stripe Connect est un formulaire d'onboarding bancaire (pas un paiement). Les URL de retour (`return_url` et `refresh_url`) dans l'edge function `create-connect-account` pointent deja vers `/dashboard`.
-
-### 2. `src/pages/MerchantOnboarding.tsx` - Etape confirmation (lignes 369-380)
-
-Remplacer le bloc "Abonnement" par un message expliquant le processus :
-
-```typescript
-// AVANT : bloc affichant MERCHANT_PLAN avec prix et features
 
 // APRES :
-<div className="rounded-xl bg-card p-4 shadow-sm">
-  <p className="text-xs text-muted-foreground">Prochaine etape</p>
-  <p className="text-sm font-semibold text-foreground">Configuration des paiements</p>
-  <p className="mt-1 text-xs text-muted-foreground">
-    Vous allez etre redirige vers notre partenaire de paiement pour configurer
-    la reception de vos revenus. Votre compte sera ensuite valide par un administrateur.
-  </p>
-</div>
+toast.success("Restaurant enregistre ! Configurez vos paiements depuis votre tableau de bord.");
+navigate("/dashboard");
 ```
 
-### 3. `src/pages/MerchantOnboarding.tsx` - Import
+### 2. `src/pages/MerchantOnboarding.tsx` - Texte de confirmation
 
-Retirer l'import de `MERCHANT_PLAN` qui n'est plus utilise.
+Mettre a jour le bloc de confirmation pour expliquer que la configuration des paiements est faisable depuis le dashboard :
 
-## Resume
+```
+"Vous pourrez configurer la reception de vos paiements a tout moment
+depuis votre tableau de bord. Votre compte sera valide par un administrateur."
+```
+
+### 3. `src/pages/Dashboard.tsx` - Mettre en avant la configuration Connect
+
+Remonter la `ConnectSection` en haut du dashboard quand le compte n'est pas encore configure, avec un message plus visible pour inciter le commercant a finaliser sa configuration.
+
+### 4. Edge function `create-connect-account` - Transferer les paiements en attente
+
+Apres la verification du statut `charges_enabled` dans `check-connect-status`, ajouter une logique pour transferer les `restaurant_payouts` en statut `pending` qui n'ont pas encore de `stripe_transfer_id` valide (ie. paiements captures avant la configuration Connect).
+
+Creer une nouvelle edge function `transfer-pending-payouts` :
+- Declenchee quand le commercant termine son onboarding Connect (au retour sur le dashboard, via `check-connect-status` quand `chargesEnabled` passe a `true`)
+- Parcourt les `restaurant_payouts` en statut `pending` pour ce restaurant
+- Cree un `Transfer` Stripe vers le compte Connect pour chaque payout en attente
+- Met a jour le statut du payout en `completed`
+
+## Resume des fichiers
 
 | Fichier | Changement |
 |---------|-----------|
-| `src/pages/MerchantOnboarding.tsx` | Remplacement `create-checkout` par `create-connect-account`, mise a jour du texte de confirmation, nettoyage import |
+| `src/pages/MerchantOnboarding.tsx` | Suppression appel Connect, redirection directe vers /dashboard, mise a jour texte |
+| `src/pages/Dashboard.tsx` | Mise en avant ConnectSection quand pas configure |
+| `supabase/functions/transfer-pending-payouts/index.ts` | Nouvelle fonction pour transferer les paiements en attente |
+| `supabase/config.toml` | Ajout config pour transfer-pending-payouts |
 
-## Flux resultant
+## Flux
 
 ```text
-Inscription compte -> Infos restaurant -> Config panier -> Confirmation
-                                                              |
-                                                    [Valider l'inscription]
-                                                              |
-                                               Creation restaurant (pending)
-                                               Creation config panier
-                                               Creation compte Stripe Connect
-                                                              |
-                                               Redirection vers Stripe Connect
-                                               (formulaire bancaire)
-                                                              |
-                                               Retour sur /dashboard
-                                               "En attente de validation admin"
-                                                              |
-                                               Admin approuve -> operationnel
+Onboarding -> Creation restaurant -> Redirection /dashboard
+                                          |
+                          [ConnectSection visible en evidence]
+                                          |
+                     Le commercant peut configurer Connect maintenant ou plus tard
+                                          |
+                     Quand Connect est active -> transfert automatique des paiements en attente
 ```
+
