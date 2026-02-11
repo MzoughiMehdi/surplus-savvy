@@ -7,8 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import ReservationConfirmation from "@/components/ReservationConfirmation";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { formatDistanceToNow } from "date-fns";
-import { fr } from "date-fns/locale";
+import { getParisDate, getParisTomorrow } from "@/lib/dateUtils";
 
 interface Reservation {
   id: string;
@@ -82,8 +81,8 @@ const OrdersPage = () => {
     expired: { label: "Expirée", variant: "destructive" },
   };
 
-  const today = new Date().toISOString().split("T")[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+  const today = getParisDate();
+  const tomorrow = getParisTomorrow();
 
   const getTitle = (r: Reservation) => r.offers?.title ?? "Lot Anti-Gaspi";
   const getPrice = (r: Reservation) => r.offers?.discounted_price ?? (r.surprise_bag_config ? Number((r.surprise_bag_config.base_price * 0.4).toFixed(2)) : 0);

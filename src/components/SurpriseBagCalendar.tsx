@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { ChevronLeft, ChevronRight, Pause, Package } from "lucide-react";
+import { getParisDate } from "@/lib/dateUtils";
 import type { DailyOverride } from "@/hooks/useDailyOverrides";
 import type { SurpriseBagConfig } from "@/hooks/useSurpriseBagConfig";
 import DayOverridePanel from "./DayOverridePanel";
@@ -51,7 +52,7 @@ const SurpriseBagCalendar = ({ config, overrides, reservationCounts, onUpsertOve
     onMonthChange(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
   };
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = getParisDate();
 
   const selectedOverride = selectedDate ? overrideMap[selectedDate] : undefined;
 

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getParisDate, getParisTomorrow } from "@/lib/dateUtils";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -133,8 +134,8 @@ const ConnectSection = ({ restaurantId }: { restaurantId?: string }) => {
 
 // Reservation card used by both Reservations and Commandes tabs
 const ReservationCard = ({ r, fetchData }: { r: ReservationData; fetchData: () => void }) => {
-  const today = new Date().toISOString().split("T")[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+  const today = getParisDate();
+  const tomorrow = getParisTomorrow();
   const pickupDay = r.pickup_date || today;
   const isTomorrow = pickupDay === tomorrow;
   const isToday = pickupDay <= today;
@@ -381,7 +382,7 @@ const Dashboard = () => {
     ? Math.max(0, Math.ceil((new Date(restaurant.trial_ends_at).getTime() - Date.now()) / 86400000))
     : 0;
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = getParisDate();
   const todayReservations = reservations.filter((r) => {
     const pickupDay = r.pickup_date || r.created_at.split("T")[0];
     return pickupDay === today;

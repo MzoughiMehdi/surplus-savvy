@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getParisDate } from "@/lib/dateUtils";
 
 export interface SurpriseBagConfig {
   id: string;
@@ -31,7 +32,7 @@ export const useSurpriseBagConfig = (restaurantId: string | undefined) => {
 
   const syncTodayOffer = async (updatedConfig: Partial<SurpriseBagConfig>) => {
     if (!restaurantId) return;
-    const today = new Date().toISOString().split("T")[0];
+    const today = getParisDate();
     const offerUpdates: Record<string, any> = {};
     if (updatedConfig.image_url !== undefined) offerUpdates.image_url = updatedConfig.image_url;
     if (updatedConfig.pickup_start !== undefined) offerUpdates.pickup_start = updatedConfig.pickup_start;

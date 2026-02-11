@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Offer } from "@/hooks/useOffers";
+import { getParisTomorrow } from "@/lib/dateUtils";
 
 export const useTomorrowOffers = () => {
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -8,9 +9,7 @@ export const useTomorrowOffers = () => {
 
   useEffect(() => {
     const fetch = async () => {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const tomorrowStr = tomorrow.toISOString().split("T")[0];
+      const tomorrowStr = getParisTomorrow();
 
       // 1. Fetch active configs with restaurant info
       const { data: configs, error: configErr } = await supabase
