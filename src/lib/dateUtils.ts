@@ -13,3 +13,10 @@ export function getParisTomorrow(): string {
   d.setDate(d.getDate() + 1);
   return d.toISOString().split("T")[0];
 }
+
+/**
+ * Converts a UTC ISO timestamp to a YYYY-MM-DD date string in Europe/Paris timezone.
+ */
+export function toParisDateString(isoTimestamp: string): string {
+  return new Date(isoTimestamp).toLocaleDateString("en-CA", { timeZone: "Europe/Paris" });
+}
