@@ -125,23 +125,21 @@ const ConnectSection = ({ restaurantId, highlight }: { restaurantId?: string; hi
   const handleOpenStripeDashboard = async () => {
     if (!restaurantId) return;
     setDashboardLoading(true);
-    const newWindow = window.open("about:blank", "_blank");
     try {
       const { data, error } = await supabase.functions.invoke("create-connect-login-link", {
         body: { restaurantId },
       });
       if (error) throw error;
       if (data?.url) {
-        if (newWindow) {
-          newWindow.location.href = data.url;
-        } else {
-          window.location.href = data.url;
-        }
-      } else {
-        newWindow?.close();
+        const link = document.createElement("a");
+        link.href = data.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       }
     } catch {
-      newWindow?.close();
       toast.error("Erreur lors de l'ouverture du dashboard Stripe");
     } finally {
       setDashboardLoading(false);
