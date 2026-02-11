@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Store, MapPin, Hash, Phone, ChevronRight, Check, Loader2, Mail, Lock, User, Eye, EyeOff, Euro, Clock, Package } from "lucide-react";
 import { toast } from "sonner";
-import { MERCHANT_PLAN } from "@/hooks/useSubscription";
+
 import RestaurantImageUpload from "@/components/RestaurantImageUpload";
 
 const restaurantCategories = [
@@ -118,17 +118,20 @@ const MerchantOnboarding = () => {
         pickup_end: bagPickupEnd,
       });
 
-      const { data, error: checkoutError } = await supabase.functions.invoke("create-checkout", {
-        body: { priceId: MERCHANT_PLAN.price_id },
-      });
+      // Créer le compte Stripe Connect
+      const { data: connectData, error: connectError } = await supabase.functions.invoke(
+        "create-connect-account",
+        { body: { restaurantId: newRest.id } }
+      );
 
-      if (checkoutError || !data?.url) {
-        toast.success("Restaurant enregistré ! Essai gratuit de 14 jours activé.");
+      if (connectError || !connectData?.url) {
+        toast.success("Restaurant enregistré ! Vous pourrez configurer vos paiements plus tard.");
         navigate("/dashboard");
         return;
       }
-      toast.success("Restaurant enregistré ! Redirection vers le paiement...");
-      window.location.href = data.url;
+
+      toast.success("Restaurant enregistré ! Configurez vos informations de paiement...");
+      window.location.href = connectData.url;
     } catch (err: any) {
       toast.error(err.message || "Une erreur est survenue");
     } finally { setLoading(false); }
@@ -367,16 +370,12 @@ const MerchantOnboarding = () => {
               <p className="mt-1 text-xs text-muted-foreground">Retrait {bagPickupStart} – {bagPickupEnd}</p>
             </div>
             <div className="rounded-xl bg-card p-4 shadow-sm">
-              <p className="text-xs text-muted-foreground">Abonnement</p>
-              <p className="text-sm font-semibold text-foreground">{MERCHANT_PLAN.name} – €{MERCHANT_PLAN.price}/mois</p>
-              <p className="mt-1 text-xs text-primary font-medium">✨ 14 jours d'essai gratuit</p>
-              <ul className="mt-2 space-y-1">
-                {MERCHANT_PLAN.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Check className="h-3 w-3 text-primary" /> {f}
-                  </li>
-                ))}
-              </ul>
+              <p className="text-xs text-muted-foreground">Prochaine étape</p>
+              <p className="text-sm font-semibold text-foreground">Configuration des paiements</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Vous allez être redirigé vers notre partenaire de paiement pour configurer
+                la réception de vos revenus. Votre compte sera ensuite validé par un administrateur.
+              </p>
             </div>
           </div>
           <div className="mt-6 flex gap-3">
