@@ -1,14 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getParisDate, getParisTomorrow, toParisDateString } from "@/lib/dateUtils";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Package, Clock, BarChart3, Store, LogOut, QrCode, CheckCircle, XCircle, Loader2, Landmark, CalendarDays, ShoppingBag, ExternalLink } from "lucide-react";
+import { Package, Clock, BarChart3, Store, LogOut, QrCode, CheckCircle, XCircle, Loader2, Landmark, CalendarDays, ShoppingBag, ExternalLink, MessageCircle, Send, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import NotificationBell from "@/components/NotificationBell";
 import RestaurantImageUpload from "@/components/RestaurantImageUpload";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useSurpriseBagConfig } from "@/hooks/useSurpriseBagConfig";
 import { useDailyOverrides } from "@/hooks/useDailyOverrides";
@@ -37,12 +38,13 @@ interface ReservationData {
   surprise_bag_config: { base_price: number; pickup_start: string; pickup_end: string } | null;
 }
 
-type TabId = "dashboard" | "reservations" | "commandes" | "stats";
+type TabId = "dashboard" | "reservations" | "commandes" | "messages" | "stats";
 
 const merchantTabs: { id: TabId; label: string; icon: typeof Store }[] = [
   { id: "dashboard", label: "Dashboard", icon: Store },
   { id: "reservations", label: "Réservations", icon: Clock },
   { id: "commandes", label: "Commandes", icon: ShoppingBag },
+  { id: "messages", label: "Messages", icon: MessageCircle },
   { id: "stats", label: "Statistiques", icon: BarChart3 },
 ];
 
@@ -339,6 +341,156 @@ const StatsTab = ({ reservations }: { reservations: ReservationData[] }) => {
   );
 };
 
+// Messages tab for merchants
+interface MerchantMessage {
+  id: string;
+  subject: string;
+  message: string;
+  status: string;
+  created_at: string;
+}
+
+interface MerchantReply {
+  id: string;
+  sender_role: string;
+  content: string;
+  created_at: string;
+}
+
+const SUBJECT_LABELS: Record<string, string> = {
+  general: "Question générale",
+  technical: "Problème technique",
+  payments: "Paiements",
+  other: "Autre",
+};
+
+const MerchantMessagesTab = ({ restaurantId }: { restaurantId: string }) => {
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<MerchantMessage[]>([]);
+  const [selected, setSelected] = useState<MerchantMessage | null>(null);
+  const [replies, setReplies] = useState<MerchantReply[]>([]);
+  const [replyText, setReplyText] = useState("");
+  const [sending, setSending] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [restaurantId]);
+
+  const fetchMessages = async () => {
+    const { data } = await supabase
+      .from("support_messages" as any)
+      .select("id, subject, message, status, created_at")
+      .eq("restaurant_id", restaurantId)
+      .order("created_at", { ascending: false });
+    setMessages((data as unknown as MerchantMessage[]) ?? []);
+  };
+
+  const openConversation = async (msg: MerchantMessage) => {
+    setSelected(msg);
+    setReplyText("");
+    const { data } = await supabase
+      .from("support_replies" as any)
+      .select("id, sender_role, content, created_at")
+      .eq("message_id", msg.id)
+      .order("created_at", { ascending: true });
+    setReplies((data as unknown as MerchantReply[]) ?? []);
+    setTimeout(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }), 100);
+  };
+
+  const handleSendReply = async () => {
+    if (!selected || !user || replyText.trim().length < 2) return;
+    setSending(true);
+    const { error } = await supabase.from("support_replies" as any).insert([
+      { message_id: selected.id, sender_role: "merchant", sender_id: user.id, content: replyText.trim() },
+    ]);
+    if (error) { toast.error("Erreur lors de l'envoi"); setSending(false); return; }
+    setReplyText("");
+    setSending(false);
+    openConversation(selected);
+  };
+
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+  if (selected) {
+    return (
+      <div className="mt-4 flex flex-col" style={{ height: "calc(100vh - 14rem)" }}>
+        <div className="flex items-center gap-2 mb-3">
+          <Button variant="ghost" size="sm" onClick={() => setSelected(null)}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Retour
+          </Button>
+          <div>
+            <p className="text-sm font-semibold text-foreground">{SUBJECT_LABELS[selected.subject] ?? selected.subject}</p>
+            <Badge variant={selected.status === "resolved" ? "outline" : "secondary"} className="text-[10px]">
+              {selected.status === "pending" ? "En attente" : selected.status === "read" ? "Lu" : "Résolu"}
+            </Badge>
+          </div>
+        </div>
+
+        <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-3 rounded-lg border border-border bg-muted/30 p-3">
+          {/* Initial message (merchant = left) */}
+          <div className="flex justify-start">
+            <div className="max-w-[80%] rounded-xl rounded-tl-sm bg-card p-3 shadow-sm">
+              <p className="text-sm text-foreground">{selected.message}</p>
+              <p className="mt-1 text-[10px] text-muted-foreground">{formatDate(selected.created_at)}</p>
+            </div>
+          </div>
+          {replies.map((r) => (
+            <div key={r.id} className={`flex ${r.sender_role === "merchant" ? "justify-start" : "justify-end"}`}>
+              <div className={`max-w-[80%] rounded-xl p-3 shadow-sm ${r.sender_role === "merchant" ? "rounded-tl-sm bg-card text-foreground" : "rounded-tr-sm bg-primary text-primary-foreground"}`}>
+                <p className="text-sm">{r.content}</p>
+                <p className={`mt-1 text-[10px] ${r.sender_role === "merchant" ? "text-muted-foreground" : "text-primary-foreground/70"}`}>{formatDate(r.created_at)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-3 flex gap-2">
+          <Textarea
+            placeholder="Votre réponse..."
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            rows={2}
+            className="flex-1"
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendReply(); } }}
+          />
+          <Button onClick={handleSendReply} disabled={sending || replyText.trim().length < 2} className="self-end">
+            <Send className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-lg font-bold text-foreground flex items-center gap-2">
+          <MessageCircle className="h-5 w-5" /> Messages
+        </h2>
+        <ContactSupportDialog restaurantId={restaurantId} />
+      </div>
+      {messages.length === 0 ? (
+        <p className="text-center text-sm text-muted-foreground mt-8">Aucun message envoyé</p>
+      ) : (
+        messages.map((m) => (
+          <div key={m.id} className="rounded-xl bg-card p-4 shadow-sm cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => openConversation(m)}>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="outline" className="text-[10px]">{SUBJECT_LABELS[m.subject] ?? m.subject}</Badge>
+              <Badge variant={m.status === "pending" ? "default" : m.status === "read" ? "secondary" : "outline"} className="text-[10px]">
+                {m.status === "pending" ? "En attente" : m.status === "read" ? "Lu" : "Résolu"}
+              </Badge>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{m.message}</p>
+            <p className="mt-1 text-[10px] text-muted-foreground">{formatDate(m.created_at)}</p>
+          </div>
+        ))
+      )}
+    </div>
+  );
+};
+
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -527,6 +679,10 @@ const Dashboard = () => {
             </div>
           )}
         </div>
+      )}
+
+      {activeTab === "messages" && restaurant && (
+        <MerchantMessagesTab restaurantId={restaurant.id} />
       )}
 
       {activeTab === "stats" && <StatsTab reservations={reservations} />}
