@@ -1,50 +1,38 @@
 
 
-# Badges "Nouveau" pour les messages - Admin et Commerçant
+# Correction du badge Messages + Ajout badge Reservations
 
-## Objectif
+## Probleme identifie
 
-Afficher un indicateur visuel (badge avec compteur) sur l'onglet Messages quand de nouveaux messages ou réponses arrivent, côté admin et côté commerçant.
+Le compteur de messages non lus (`merchantUnreadCount`) est charge une seule fois au montage du composant Dashboard via `fetchData()`. Quand le commercant ouvre une conversation (ce qui marque `merchant_unread = false` en base), le compteur dans le state du parent n'est jamais mis a jour. En revenant sur la liste, le composant `MerchantMessagesTab` recharge les messages depuis la base (donc le badge "Nouveau" disparait), mais le compteur en bas reste inchange.
 
-## Approche
+## Corrections prevues
 
-Ajouter deux colonnes booléennes sur la table `support_messages` pour suivre les messages non lus de chaque côté :
-- `admin_unread` : passe à `true` quand le commerçant envoie un nouveau message ou une réponse, repassé à `false` quand l'admin ouvre la conversation
-- `merchant_unread` : passe à `true` quand l'admin répond, repassé à `false` quand le commerçant ouvre la conversation
+### 1. Fichier `src/pages/Dashboard.tsx`
 
-## Modifications
+**Bug messages :**
+- Extraire la logique de chargement du compteur non lu dans une fonction separee `fetchUnreadCount`
+- Appeler `fetchUnreadCount` a chaque changement d'onglet vers "messages" (quand le commercant entre dans l'onglet, on recharge le compteur)
+- Passer un callback `onUnreadChange` au composant `MerchantMessagesTab` pour que celui-ci puisse mettre a jour le compteur du parent quand il marque un message comme lu
+- Dans `MerchantMessagesTab.openConversation`, apres avoir mis `merchant_unread = false`, appeler ce callback pour decrementer le compteur
 
-### 1. Migration SQL
+**Badge reservations :**
+- Ajouter un state `unreadReservations` qui compte les reservations avec statut `confirmed` (en attente)
+- Ce compteur est calcule a partir des donnees deja chargees (`pendingReservations.length`)
+- Ajouter un state `hasSeenReservations` qui passe a `true` quand le commercant entre dans l'onglet "reservations"
+- Quand `hasSeenReservations` est `true`, le badge disparait
+- Le badge reapparait si de nouvelles reservations arrivent (quand `pendingReservations.length` change et depasse la valeur vue)
+- Passer `unreadReservations` au `MerchantBottomNav` et afficher le badge de la meme facon que pour les messages
 
-- Ajouter `admin_unread boolean NOT NULL DEFAULT true` sur `support_messages` (true par défaut car un nouveau message est non lu pour l'admin)
-- Ajouter `merchant_unread boolean NOT NULL DEFAULT false` sur `support_messages` (false par défaut car c'est le commerçant qui initie)
+**MerchantBottomNav :**
+- Ajouter une prop `unreadReservations` pour afficher le badge sur l'onglet "Reservations"
+- Generaliser l'affichage du badge pour les deux onglets (messages et reservations)
 
-### 2. `src/pages/admin/AdminMessages.tsx`
+## Resume technique
 
-- Au chargement de la liste, compter les messages avec `admin_unread = true`
-- Afficher le badge avec le compteur dans le titre "Messages"
-- Quand l'admin ouvre une conversation : mettre `admin_unread = false` sur ce message
-- Quand l'admin envoie une réponse : mettre `merchant_unread = true` sur le message
-
-### 3. `src/pages/admin/AdminLayout.tsx`
-
-- Charger le compteur de messages avec `admin_unread = true` depuis la base
-- Afficher un badge rouge à côté de l'entrée "Messages" dans la sidebar quand le compteur est supérieur à 0
-
-### 4. `src/pages/Dashboard.tsx` (commerçant)
-
-- Dans le composant `Dashboard`, charger le compteur de messages avec `merchant_unread = true` pour le restaurant du commerçant
-- Passer ce compteur au `MerchantBottomNav` pour afficher un badge sur l'onglet "Messages"
-- Dans `MerchantMessagesTab`, quand le commerçant ouvre une conversation : mettre `merchant_unread = false`
-- Quand le commerçant envoie une réponse : mettre `admin_unread = true`
-- Afficher aussi un badge "Nouveau" sur chaque conversation non lue dans la liste
-
-## Résumé des fichiers
-
-| Fichier | Action |
+| Fichier | Modification |
 |---|---|
-| Migration SQL | Ajouter colonnes `admin_unread` et `merchant_unread` |
-| `src/pages/admin/AdminMessages.tsx` | Gérer les flags unread à l'ouverture et à l'envoi |
-| `src/pages/admin/AdminLayout.tsx` | Badge compteur sur l'entrée "Messages" de la sidebar |
-| `src/pages/Dashboard.tsx` | Badge compteur sur l'onglet Messages du bottom nav + flags unread |
+| `src/pages/Dashboard.tsx` | Corriger le rafraichissement du compteur messages, ajouter badge reservations, passer callback au MerchantMessagesTab |
+
+Aucune modification de base de donnees requise. Le compteur de reservations utilise les donnees deja presentes (reservations en attente).
 
