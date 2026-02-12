@@ -14,6 +14,7 @@ import { useSurpriseBagConfig } from "@/hooks/useSurpriseBagConfig";
 import { useDailyOverrides } from "@/hooks/useDailyOverrides";
 import SurpriseBagConfig from "@/components/SurpriseBagConfig";
 import SurpriseBagCalendar from "@/components/SurpriseBagCalendar";
+import ContactSupportDialog from "@/components/ContactSupportDialog";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 interface RestaurantData {
@@ -479,6 +480,13 @@ const Dashboard = () => {
                 currentMonth={currentMonth}
                 onMonthChange={setCurrentMonth}
               />
+            </div>
+          )}
+
+          {/* Contact Support */}
+          {restaurant && (
+            <div className="mt-6">
+              <ContactSupportDialog restaurantId={restaurant.id} />
             </div>
           )}
         </>
