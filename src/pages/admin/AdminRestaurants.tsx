@@ -75,15 +75,6 @@ const AdminRestaurants = () => {
       // 2. Deactivate all active offers
       await supabase.from("offers").update({ is_active: false }).eq("restaurant_id", id).eq("is_active", true);
 
-      // 3. Pause Stripe subscription
-      try {
-        await supabase.functions.invoke("manage-subscription-status", {
-          body: { restaurantId: id, action: "pause" },
-        });
-      } catch (e) {
-        console.warn("Stripe pause failed (non-blocking):", e);
-      }
-
       toast.success("Restaurant suspendu");
       fetchRestaurants();
     } catch (e: any) {
@@ -98,15 +89,6 @@ const AdminRestaurants = () => {
     try {
       const { error } = await supabase.from("restaurants").update({ status: "approved" }).eq("id", id);
       if (error) throw error;
-
-      // Resume Stripe subscription
-      try {
-        await supabase.functions.invoke("manage-subscription-status", {
-          body: { restaurantId: id, action: "resume" },
-        });
-      } catch (e) {
-        console.warn("Stripe resume failed (non-blocking):", e);
-      }
 
       toast.success("Restaurant réactivé");
       fetchRestaurants();
@@ -168,7 +150,6 @@ const AdminRestaurants = () => {
                 <TableHead>Restaurant</TableHead>
                 <TableHead>Adresse</TableHead>
                 <TableHead>Catégorie</TableHead>
-                <TableHead>Plan</TableHead>
                 <TableHead>Statut</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -176,7 +157,7 @@ const AdminRestaurants = () => {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                     Aucun restaurant trouvé
                   </TableCell>
                 </TableRow>
@@ -189,9 +170,6 @@ const AdminRestaurants = () => {
                       <TableCell className="text-muted-foreground text-sm">{r.address}</TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="capitalize">{r.category}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">{r.subscription_plan ?? "—"}</Badge>
                       </TableCell>
                       <TableCell>
                         <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${statusColors[r.status] ?? ""}`}>

@@ -20,9 +20,6 @@ interface RestaurantDetail {
   description: string | null;
   phone: string | null;
   image_url: string | null;
-  subscription_plan: string | null;
-  subscription_start: string | null;
-  trial_ends_at: string | null;
   opening_hours: any;
   owner_id: string;
   created_at: string;
@@ -96,14 +93,6 @@ const AdminRestaurantDetail = () => {
 
       await supabase.from("offers").update({ is_active: false }).eq("restaurant_id", id).eq("is_active", true);
 
-      try {
-        await supabase.functions.invoke("manage-subscription-status", {
-          body: { restaurantId: id, action: "pause" },
-        });
-      } catch (e) {
-        console.warn("Stripe pause failed (non-blocking):", e);
-      }
-
       toast.success("Restaurant suspendu");
       setRestaurant((prev) => prev ? { ...prev, status: "suspended" } : prev);
     } catch (e: any) {
@@ -119,14 +108,6 @@ const AdminRestaurantDetail = () => {
     try {
       const { error } = await supabase.from("restaurants").update({ status: "approved" }).eq("id", id);
       if (error) throw error;
-
-      try {
-        await supabase.functions.invoke("manage-subscription-status", {
-          body: { restaurantId: id, action: "resume" },
-        });
-      } catch (e) {
-        console.warn("Stripe resume failed (non-blocking):", e);
-      }
 
       toast.success("Restaurant réactivé");
       setRestaurant((prev) => prev ? { ...prev, status: "approved" } : prev);
@@ -250,27 +231,6 @@ const AdminRestaurantDetail = () => {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader><CardTitle className="text-lg">Abonnement</CardTitle></CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-muted-foreground">Plan :</span>
-                <Badge variant="outline" className="capitalize">{restaurant.subscription_plan ?? "—"}</Badge>
-              </div>
-              {restaurant.subscription_start && (
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span>Début : {new Date(restaurant.subscription_start).toLocaleDateString("fr-FR")}</span>
-                </div>
-              )}
-              {restaurant.trial_ends_at && (
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span>Fin essai : {new Date(restaurant.trial_ends_at).toLocaleDateString("fr-FR")}</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
       </div>
 

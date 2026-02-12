@@ -1,15 +1,6 @@
 project_id = "yuqemnbwndyjmpzxlwyv"
 
-[functions.create-checkout]
-verify_jwt = false
-
 [functions.create-payment]
-verify_jwt = false
-
-[functions.check-subscription]
-verify_jwt = false
-
-[functions.customer-portal]
 verify_jwt = false
 
 [functions.verify-payment]
@@ -22,9 +13,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.geocode-restaurants]
-verify_jwt = false
-
-[functions.manage-subscription-status]
 verify_jwt = false
 
 [functions.transfer-pending-payouts]

@@ -104,7 +104,7 @@ const MerchantOnboarding = () => {
         owner_id: user.id, name: name.trim(), address: fullAddress,
         postal_code: postalCode.trim(), city: city.trim(),
         business_id: businessId.trim() || null, phone: phone.trim() || null,
-        category, description: description.trim() || null, image_url: imageUrl, subscription_plan: "trial",
+        category, description: description.trim() || null, image_url: imageUrl,
       }).select("id").single();
 
       if (error) throw error;
