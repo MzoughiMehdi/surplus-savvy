@@ -48,12 +48,13 @@ const merchantTabs: { id: TabId; label: string; icon: typeof Store }[] = [
   { id: "stats", label: "Statistiques", icon: BarChart3 },
 ];
 
-const MerchantBottomNav = ({ active, onNavigate, unreadMessages = 0 }: { active: TabId; onNavigate: (tab: TabId) => void; unreadMessages?: number }) => (
+const MerchantBottomNav = ({ active, onNavigate, unreadMessages = 0, unreadReservations = 0 }: { active: TabId; onNavigate: (tab: TabId) => void; unreadMessages?: number; unreadReservations?: number }) => (
   <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-primary/20 bg-primary shadow-[0_-4px_20px_-4px_hsl(var(--primary)/0.3)]">
     <div className="flex items-center justify-around py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
       {merchantTabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = active === tab.id;
+        const badgeCount = tab.id === "messages" ? unreadMessages : tab.id === "reservations" ? unreadReservations : 0;
         return (
           <button
             key={tab.id}
@@ -63,8 +64,8 @@ const MerchantBottomNav = ({ active, onNavigate, unreadMessages = 0 }: { active:
             {isActive && <span className="absolute -top-1.5 h-1 w-6 rounded-full bg-primary-foreground" />}
             <div className="relative">
               <Icon className={`h-5 w-5 transition-all ${isActive ? "text-primary-foreground scale-110" : "text-primary-foreground/60 group-hover:text-primary-foreground/90"}`} />
-              {tab.id === "messages" && unreadMessages > 0 && (
-                <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground px-1">{unreadMessages}</span>
+              {badgeCount > 0 && (
+                <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground px-1">{badgeCount}</span>
               )}
             </div>
             <span className={`text-[10px] font-medium transition-colors ${isActive ? "text-primary-foreground" : "text-primary-foreground/60"}`}>{tab.label}</span>
@@ -370,7 +371,7 @@ const SUBJECT_LABELS: Record<string, string> = {
   other: "Autre",
 };
 
-const MerchantMessagesTab = ({ restaurantId }: { restaurantId: string }) => {
+const MerchantMessagesTab = ({ restaurantId, onUnreadChange }: { restaurantId: string; onUnreadChange?: () => void }) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<MerchantMessage[]>([]);
   const [selected, setSelected] = useState<MerchantMessage | null>(null);
@@ -399,6 +400,7 @@ const MerchantMessagesTab = ({ restaurantId }: { restaurantId: string }) => {
     if (msg.merchant_unread) {
       await supabase.from("support_messages" as any).update({ merchant_unread: false }).eq("id", msg.id);
       setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, merchant_unread: false } : m));
+      onUnreadChange?.();
     }
     const { data } = await supabase
       .from("support_replies" as any)
@@ -513,12 +515,22 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [merchantUnreadCount, setMerchantUnreadCount] = useState(0);
+  const [seenReservationsCount, setSeenReservationsCount] = useState<number | null>(null);
 
   const now = new Date();
   const [currentMonth, setCurrentMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
 
   const { config, upsertConfig } = useSurpriseBagConfig(restaurant?.id);
   const { overrides, upsertOverride, deleteOverride } = useDailyOverrides(restaurant?.id, currentMonth);
+
+  const fetchUnreadCount = async (restaurantId: string) => {
+    const { count } = await supabase
+      .from("support_messages" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("restaurant_id", restaurantId)
+      .eq("merchant_unread", true);
+    setMerchantUnreadCount(count ?? 0);
+  };
 
   useEffect(() => {
     if (!user) { navigate("/auth"); return; }
@@ -537,13 +549,7 @@ const Dashboard = () => {
     if (!rest) { navigate("/merchant-onboarding"); return; }
     setRestaurant(rest);
 
-    // Fetch unread messages count for merchant
-    const { count } = await supabase
-      .from("support_messages" as any)
-      .select("id", { count: "exact", head: true })
-      .eq("restaurant_id", rest.id)
-      .eq("merchant_unread", true);
-    setMerchantUnreadCount(count ?? 0);
+    fetchUnreadCount(rest.id);
 
     const { data: res } = await supabase
       .from("reservations")
@@ -576,7 +582,18 @@ const Dashboard = () => {
     return pickupDay === today;
   });
   const pendingReservations = reservations.filter((r) => r.status === "confirmed");
+  const unreadReservations = seenReservationsCount === null ? pendingReservations.length : Math.max(0, pendingReservations.length - seenReservationsCount);
   const orderReservations = reservations.filter((r) => r.status === "accepted" || r.status === "completed");
+
+  const handleTabChange = (tab: TabId) => {
+    if (tab === "messages" && restaurant) {
+      fetchUnreadCount(restaurant.id);
+    }
+    if (tab === "reservations") {
+      setSeenReservationsCount(pendingReservations.length);
+    }
+    setActiveTab(tab);
+  };
 
   return (
     <div className="min-h-screen bg-background px-5 pb-24 pt-12">
@@ -705,12 +722,12 @@ const Dashboard = () => {
       )}
 
       {activeTab === "messages" && restaurant && (
-        <MerchantMessagesTab restaurantId={restaurant.id} />
+        <MerchantMessagesTab restaurantId={restaurant.id} onUnreadChange={() => restaurant && fetchUnreadCount(restaurant.id)} />
       )}
 
       {activeTab === "stats" && <StatsTab reservations={reservations} />}
 
-      <MerchantBottomNav active={activeTab} onNavigate={setActiveTab} unreadMessages={merchantUnreadCount} />
+      <MerchantBottomNav active={activeTab} onNavigate={handleTabChange} unreadMessages={merchantUnreadCount} unreadReservations={unreadReservations} />
     </div>
   );
 };
