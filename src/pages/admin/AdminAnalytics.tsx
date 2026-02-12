@@ -8,32 +8,21 @@ const COLORS = ["hsl(152,45%,28%)", "hsl(16,65%,55%)", "hsl(38,92%,50%)", "hsl(2
 const AdminAnalytics = () => {
   const [restaurantsByStatus, setRestaurantsByStatus] = useState<{ name: string; value: number }[]>([]);
   const [offersByCategory, setOffersByCategory] = useState<{ name: string; value: number }[]>([]);
-  const [planDistribution, setPlanDistribution] = useState<{ name: string; value: number }[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       const [{ data: restaurants }, { data: offers }] = await Promise.all([
-        supabase.from("restaurants").select("status, subscription_plan"),
+        supabase.from("restaurants").select("status"),
         supabase.from("offers").select("category"),
       ]);
 
-      // Restaurants by status
       const statusMap: Record<string, number> = {};
       restaurants?.forEach((r) => { statusMap[r.status] = (statusMap[r.status] || 0) + 1; });
       setRestaurantsByStatus(Object.entries(statusMap).map(([name, value]) => ({ name, value })));
 
-      // Offers by category
       const catMap: Record<string, number> = {};
       offers?.forEach((o) => { catMap[o.category ?? "other"] = (catMap[o.category ?? "other"] || 0) + 1; });
       setOffersByCategory(Object.entries(catMap).map(([name, value]) => ({ name, value })));
-
-      // Plans
-      const planMap: Record<string, number> = {};
-      restaurants?.forEach((r) => {
-        const plan = r.subscription_plan ?? "none";
-        planMap[plan] = (planMap[plan] || 0) + 1;
-      });
-      setPlanDistribution(Object.entries(planMap).map(([name, value]) => ({ name, value })));
     };
     fetchData();
   }, []);
@@ -74,22 +63,6 @@ const AdminAnalytics = () => {
                 <Tooltip />
                 <Legend />
               </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Distribution des plans</CardTitle>
-          </CardHeader>
-          <CardContent className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={planDistribution}>
-                <XAxis dataKey="name" tick={{ fill: "hsl(150,10%,45%)", fontSize: 12 }} />
-                <YAxis allowDecimals={false} tick={{ fill: "hsl(150,10%,45%)", fontSize: 12 }} />
-                <Tooltip />
-                <Bar dataKey="value" fill="hsl(16,65%,55%)" radius={[6, 6, 0, 0]} />
-              </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>

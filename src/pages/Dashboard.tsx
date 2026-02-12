@@ -4,13 +4,12 @@ import { getParisDate, getParisTomorrow, toParisDateString } from "@/lib/dateUti
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Package, Clock, BarChart3, Store, LogOut, QrCode, CheckCircle, XCircle, Users, CreditCard, ExternalLink, Loader2, Landmark, CalendarDays, ShoppingBag } from "lucide-react";
+import { Package, Clock, BarChart3, Store, LogOut, QrCode, CheckCircle, XCircle, Loader2, Landmark, CalendarDays, ShoppingBag, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import NotificationBell from "@/components/NotificationBell";
 import RestaurantImageUpload from "@/components/RestaurantImageUpload";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useSubscription, MERCHANT_PLAN } from "@/hooks/useSubscription";
 import { useSurpriseBagConfig } from "@/hooks/useSurpriseBagConfig";
 import { useDailyOverrides } from "@/hooks/useDailyOverrides";
 import SurpriseBagConfig from "@/components/SurpriseBagConfig";
@@ -20,8 +19,6 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recha
 interface RestaurantData {
   id: string;
   name: string;
-  subscription_plan: string;
-  trial_ends_at: string;
   status: string;
   image_url: string | null;
   stripe_account_id: string | null;
@@ -72,7 +69,6 @@ const MerchantBottomNav = ({ active, onNavigate }: { active: TabId; onNavigate: 
 
 const ConnectSection = ({ restaurantId, highlight }: { restaurantId?: string; highlight?: boolean }) => {
   const [connectLoading, setConnectLoading] = useState(false);
-  const [dashboardLoading, setDashboardLoading] = useState(false);
 
   const { data: connectStatus } = useQuery({
     queryKey: ["connect-status", restaurantId],
@@ -122,44 +118,6 @@ const ConnectSection = ({ restaurantId, highlight }: { restaurantId?: string; hi
     }
   };
 
-  const handleOpenStripeDashboard = async () => {
-    if (!restaurantId) return;
-    setDashboardLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("create-connect-login-link", {
-        body: { restaurantId },
-      });
-      if (error) throw error;
-      if (data?.url) {
-        // Try window.open first, fallback to showing clickable link
-        const opened = window.open(data.url, "_blank", "noopener,noreferrer");
-        if (!opened) {
-          // Sandbox blocks window.open — show a clickable toast with the link
-          toast.info("Cliquez sur le lien ci-dessous pour accéder à votre compte Stripe", {
-            duration: 30000,
-            description: data.url.substring(0, 60) + "...",
-            action: {
-              label: "Ouvrir",
-              onClick: () => {
-                const a = document.createElement("a");
-                a.href = data.url;
-                a.target = "_blank";
-                a.rel = "noopener noreferrer";
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-              },
-            },
-          });
-        }
-      }
-    } catch {
-      toast.error("Erreur lors de l'ouverture du dashboard Stripe");
-    } finally {
-      setDashboardLoading(false);
-    }
-  };
-
   return (
     <div className={`mt-4 rounded-xl border p-4 shadow-sm ${highlight && !connectStatus?.chargesEnabled ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
       <div className="flex items-center justify-between">
@@ -178,14 +136,7 @@ const ConnectSection = ({ restaurantId, highlight }: { restaurantId?: string; hi
           )}
         </div>
         {connectStatus?.chargesEnabled ? (
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="text-[10px]">Actif</Badge>
-            <Button size="sm" variant="ghost" onClick={handleOpenStripeDashboard} disabled={dashboardLoading} className="h-7 px-2 text-[10px]">
-              {dashboardLoading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-              Voir mon compte
-              <ExternalLink className="ml-1 h-3 w-3" />
-            </Button>
-          </div>
+          <Badge variant="secondary" className="text-[10px]">Actif</Badge>
         ) : (
           <Button size="sm" onClick={handleSetupConnect} disabled={connectLoading}>
             {connectLoading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
@@ -390,7 +341,6 @@ const StatsTab = ({ reservations }: { reservations: ReservationData[] }) => {
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const subscription = useSubscription();
   const [restaurant, setRestaurant] = useState<RestaurantData | null>(null);
   const [reservations, setReservations] = useState<ReservationData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -444,10 +394,6 @@ const Dashboard = () => {
     );
   }
 
-  const trialDaysLeft = restaurant?.trial_ends_at
-    ? Math.max(0, Math.ceil((new Date(restaurant.trial_ends_at).getTime() - Date.now()) / 86400000))
-    : 0;
-
   const today = getParisDate();
   const todayReservations = reservations.filter((r) => {
     const pickupDay = r.pickup_date || toParisDateString(r.created_at);
@@ -488,35 +434,6 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* Subscription */}
-          <div className="mt-4 rounded-xl border border-border bg-card p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-primary" /> Abonnement
-                </p>
-                {subscription.subscribed ? (
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Plan {MERCHANT_PLAN.name} · Renouvellement {subscription.subscriptionEnd ? new Date(subscription.subscriptionEnd).toLocaleDateString("fr-FR") : ""}
-                  </p>
-                ) : (
-                  <p className="mt-0.5 text-xs text-muted-foreground">Essai gratuit · {trialDaysLeft} jour{trialDaysLeft > 1 ? "s" : ""} restant{trialDaysLeft > 1 ? "s" : ""}</p>
-                )}
-              </div>
-              {subscription.subscribed ? (
-                <Button size="sm" variant="outline" onClick={async () => {
-                  try { await subscription.openPortal(); } catch { toast.error("Impossible d'ouvrir le portail"); }
-                }}>
-                  Gérer <ExternalLink className="ml-1 h-3 w-3" />
-                </Button>
-              ) : (
-                <Button size="sm" onClick={async () => {
-                  try { await subscription.startCheckout(); } catch { toast.error("Erreur de paiement"); }
-                }}>{MERCHANT_PLAN.name} {MERCHANT_PLAN.price}€/mois</Button>
-              )}
-            </div>
-          </div>
-
           <ConnectSection restaurantId={restaurant?.id} highlight={!restaurant?.stripe_account_id} />
 
           {restaurant?.status === "pending" && (
@@ -540,8 +457,8 @@ const Dashboard = () => {
             </div>
             <div className="rounded-xl bg-card p-3 text-center shadow-sm">
               <Store className="mx-auto h-5 w-5 text-success" />
-              <p className="mt-1 text-xl font-bold text-foreground capitalize">{restaurant?.subscription_plan}</p>
-              <p className="text-[10px] text-muted-foreground">Plan</p>
+              <p className="mt-1 text-xl font-bold text-foreground capitalize">{restaurant?.status === "approved" ? "Actif" : "En attente"}</p>
+              <p className="text-[10px] text-muted-foreground">Statut</p>
             </div>
           </div>
 
