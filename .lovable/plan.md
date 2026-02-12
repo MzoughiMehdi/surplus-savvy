@@ -1,73 +1,50 @@
 
-# Systeme de messagerie bidirectionnelle Admin / Commercant
 
-## Ce qui sera fait
+# Badges "Nouveau" pour les messages - Admin et Commerçant
 
-Transformer le systeme de messages de support actuel en une messagerie conversationnelle : l'admin pourra repondre aux messages des commercants, et les commercants auront un onglet "Messages" dans leur barre de navigation pour consulter les conversations et les reponses.
+## Objectif
 
-## Modifications de la base de donnees
+Afficher un indicateur visuel (badge avec compteur) sur l'onglet Messages quand de nouveaux messages ou réponses arrivent, côté admin et côté commerçant.
 
-### Nouvelle table `support_replies`
+## Approche
 
-Stocker les reponses (admin ou commercant) liees a un message de support :
-- `id` (uuid)
-- `message_id` (uuid, reference a `support_messages.id`)
-- `sender_role` (text : "admin" ou "merchant")
-- `sender_id` (uuid, l'utilisateur qui repond)
-- `content` (text)
-- `created_at` (timestamp)
+Ajouter deux colonnes booléennes sur la table `support_messages` pour suivre les messages non lus de chaque côté :
+- `admin_unread` : passe à `true` quand le commerçant envoie un nouveau message ou une réponse, repassé à `false` quand l'admin ouvre la conversation
+- `merchant_unread` : passe à `true` quand l'admin répond, repassé à `false` quand le commerçant ouvre la conversation
 
-Politiques RLS :
-- Les admins peuvent tout voir et inserer des reponses
-- Les proprietaires du restaurant lie au message peuvent voir et inserer des reponses
-- Personne ne peut supprimer
+## Modifications
 
-## Cote Admin
+### 1. Migration SQL
 
-### Nouvelle page `src/pages/admin/AdminMessages.tsx`
+- Ajouter `admin_unread boolean NOT NULL DEFAULT true` sur `support_messages` (true par défaut car un nouveau message est non lu pour l'admin)
+- Ajouter `merchant_unread boolean NOT NULL DEFAULT false` sur `support_messages` (false par défaut car c'est le commerçant qui initie)
 
-- Page dediee accessible via un nouvel onglet "Messages" dans la sidebar admin (icone `MessageCircle`)
-- Liste des conversations (support_messages) avec nom du restaurant, sujet, date, statut, nombre de reponses
-- Clic sur une conversation ouvre un volet de detail avec le fil de messages (message initial + reponses) et un champ de reponse en bas
-- Possibilite de changer le statut (Nouveau, Lu, Resolu)
+### 2. `src/pages/admin/AdminMessages.tsx`
 
-### Modifications dans `AdminLayout.tsx`
+- Au chargement de la liste, compter les messages avec `admin_unread = true`
+- Afficher le badge avec le compteur dans le titre "Messages"
+- Quand l'admin ouvre une conversation : mettre `admin_unread = false` sur ce message
+- Quand l'admin envoie une réponse : mettre `merchant_unread = true` sur le message
 
-- Ajouter l'entree "Messages" dans `navItems` avec l'icone `MessageCircle`
+### 3. `src/pages/admin/AdminLayout.tsx`
 
-### Modifications dans `App.tsx`
+- Charger le compteur de messages avec `admin_unread = true` depuis la base
+- Afficher un badge rouge à côté de l'entrée "Messages" dans la sidebar quand le compteur est supérieur à 0
 
-- Ajouter la route `/admin/messages` vers `AdminMessages`
+### 4. `src/pages/Dashboard.tsx` (commerçant)
 
-### Nettoyage `AdminDashboard.tsx`
+- Dans le composant `Dashboard`, charger le compteur de messages avec `merchant_unread = true` pour le restaurant du commerçant
+- Passer ce compteur au `MerchantBottomNav` pour afficher un badge sur l'onglet "Messages"
+- Dans `MerchantMessagesTab`, quand le commerçant ouvre une conversation : mettre `merchant_unread = false`
+- Quand le commerçant envoie une réponse : mettre `admin_unread = true`
+- Afficher aussi un badge "Nouveau" sur chaque conversation non lue dans la liste
 
-- Retirer la section messages du dashboard (elle est deplacee dans sa propre page)
-- Garder uniquement les stats (restaurants, offres, utilisateurs, en attente)
-
-## Cote Commercant
-
-### Nouvel onglet "Messages" dans `Dashboard.tsx`
-
-- Ajouter un onglet "Messages" (icone `MessageCircle`) dans la barre de navigation du bas du commercant, entre "Commandes" et "Statistiques"
-- Le contenu de l'onglet affiche :
-  - Un bouton "Nouveau message" qui ouvre le `ContactSupportDialog` existant
-  - La liste des conversations precedentes avec sujet, date, statut
-  - Clic sur une conversation affiche le fil (message initial + reponses) et un champ pour repondre
-
-## Resume des fichiers
+## Résumé des fichiers
 
 | Fichier | Action |
 |---|---|
-| Migration SQL | Creer table `support_replies` + RLS |
-| `src/pages/admin/AdminMessages.tsx` | Nouvelle page de messagerie admin |
-| `src/pages/admin/AdminLayout.tsx` | Ajouter entree "Messages" dans la sidebar |
-| `src/pages/admin/AdminDashboard.tsx` | Retirer la section messages |
-| `src/App.tsx` | Ajouter route `/admin/messages` |
-| `src/pages/Dashboard.tsx` | Ajouter onglet "Messages" avec liste conversations et reponses |
+| Migration SQL | Ajouter colonnes `admin_unread` et `merchant_unread` |
+| `src/pages/admin/AdminMessages.tsx` | Gérer les flags unread à l'ouverture et à l'envoi |
+| `src/pages/admin/AdminLayout.tsx` | Badge compteur sur l'entrée "Messages" de la sidebar |
+| `src/pages/Dashboard.tsx` | Badge compteur sur l'onglet Messages du bottom nav + flags unread |
 
-## Details techniques
-
-- Les reponses sont chargees via une jointure `support_replies` filtree par `message_id`
-- Le champ de reponse insere dans `support_replies` avec `sender_role` = "admin" ou "merchant" selon le contexte
-- Le statut du message passe automatiquement a "read" quand l'admin repond, et reste modifiable manuellement
-- L'affichage du fil de conversation est un simple scroll vertical avec des bulles alignees a gauche (commercant) ou a droite (admin)
