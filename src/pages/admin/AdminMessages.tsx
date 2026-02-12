@@ -15,6 +15,7 @@ interface SupportMessage {
   status: string;
   created_at: string;
   restaurant_id: string;
+  admin_unread: boolean;
   restaurants: { name: string } | null;
 }
 
@@ -54,7 +55,7 @@ const AdminMessages = () => {
   const fetchMessages = async () => {
     const { data } = await supabase
       .from("support_messages" as any)
-      .select("id, subject, message, status, created_at, restaurant_id, restaurants(name)")
+      .select("id, subject, message, status, created_at, restaurant_id, admin_unread, restaurants(name)")
       .order("created_at", { ascending: false });
     setMessages((data as unknown as SupportMessage[]) ?? []);
   };
@@ -62,6 +63,11 @@ const AdminMessages = () => {
   const openConversation = async (msg: SupportMessage) => {
     setSelected(msg);
     setReplyText("");
+    // Mark as read for admin
+    if (msg.admin_unread) {
+      await supabase.from("support_messages" as any).update({ admin_unread: false }).eq("id", msg.id);
+      setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, admin_unread: false } : m));
+    }
     const { data } = await supabase
       .from("support_replies" as any)
       .select("id, sender_role, content, created_at")
@@ -82,9 +88,12 @@ const AdminMessages = () => {
       setSending(false);
       return;
     }
-    // Auto mark as read
+    // Auto mark as read + flag merchant_unread
+    await supabase.from("support_messages" as any).update({
+      ...(selected.status === "pending" ? { status: "read" } : {}),
+      merchant_unread: true,
+    }).eq("id", selected.id);
     if (selected.status === "pending") {
-      await supabase.from("support_messages" as any).update({ status: "read" }).eq("id", selected.id);
       setSelected((s) => s ? { ...s, status: "read" } : s);
       setMessages((prev) => prev.map((m) => m.id === selected.id ? { ...m, status: "read" } : m));
     }
@@ -170,8 +179,8 @@ const AdminMessages = () => {
     <div className="space-y-4">
       <h1 className="font-display text-2xl font-bold text-foreground flex items-center gap-2">
         <MessageCircle className="h-6 w-6" /> Messages
-        {messages.filter((m) => m.status === "pending").length > 0 && (
-          <Badge>{messages.filter((m) => m.status === "pending").length}</Badge>
+        {messages.filter((m) => m.admin_unread).length > 0 && (
+          <Badge>{messages.filter((m) => m.admin_unread).length}</Badge>
         )}
       </h1>
       {messages.length === 0 ? (
@@ -179,13 +188,14 @@ const AdminMessages = () => {
       ) : (
         <div className="space-y-3">
           {messages.map((m) => (
-            <Card key={m.id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => openConversation(m)}>
+            <Card key={m.id} className={`cursor-pointer hover:bg-muted/50 transition-colors ${m.admin_unread ? "border-primary/50 bg-primary/5" : ""}`} onClick={() => openConversation(m)}>
               <CardContent className="pt-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold text-foreground">{m.restaurants?.name ?? "Restaurant inconnu"}</p>
                       <Badge variant="outline" className="text-[10px]">{SUBJECT_LABELS[m.subject] ?? m.subject}</Badge>
+                      {m.admin_unread && <Badge className="text-[10px]">Nouveau</Badge>}
                       <Badge
                         variant={m.status === "pending" ? "default" : m.status === "read" ? "secondary" : "outline"}
                         className="text-[10px]"

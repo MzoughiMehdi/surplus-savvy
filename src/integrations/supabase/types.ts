@@ -588,8 +588,10 @@ export type Database = {
       }
       support_messages: {
         Row: {
+          admin_unread: boolean
           created_at: string
           id: string
+          merchant_unread: boolean
           message: string
           restaurant_id: string
           status: string
@@ -597,8 +599,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          admin_unread?: boolean
           created_at?: string
           id?: string
+          merchant_unread?: boolean
           message: string
           restaurant_id: string
           status?: string
@@ -606,8 +610,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          admin_unread?: boolean
           created_at?: string
           id?: string
+          merchant_unread?: boolean
           message?: string
           restaurant_id?: string
           status?: string
