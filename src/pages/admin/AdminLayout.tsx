@@ -1,9 +1,11 @@
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate, Outlet, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { LayoutDashboard, Store, BarChart3, Shield, LogOut, Settings, Euro, ClipboardList, Flag, MessageCircle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import NotificationBell from "@/components/NotificationBell";
+import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Sidebar,
   SidebarContent,
@@ -32,12 +34,27 @@ const AdminLayout = () => {
   const { user, isAdmin, loading, profileLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     if (!loading && !profileLoading && (!user || !isAdmin)) {
       navigate("/");
     }
   }, [user, isAdmin, loading, profileLoading, navigate]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const fetchUnread = async () => {
+      const { count } = await supabase
+        .from("support_messages" as any)
+        .select("id", { count: "exact", head: true })
+        .eq("admin_unread", true);
+      setUnreadCount(count ?? 0);
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => clearInterval(interval);
+  }, [isAdmin]);
 
   if (loading || profileLoading) {
     return (
@@ -73,6 +90,9 @@ const AdminLayout = () => {
                         >
                           <item.icon className="mr-2 h-4 w-4" />
                           <span>{item.title}</span>
+                          {item.url === "/admin/messages" && unreadCount > 0 && (
+                            <Badge className="ml-auto text-[10px] h-5 min-w-5 flex items-center justify-center">{unreadCount}</Badge>
+                          )}
                         </NavLink>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

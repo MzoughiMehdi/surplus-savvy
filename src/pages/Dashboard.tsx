@@ -48,7 +48,7 @@ const merchantTabs: { id: TabId; label: string; icon: typeof Store }[] = [
   { id: "stats", label: "Statistiques", icon: BarChart3 },
 ];
 
-const MerchantBottomNav = ({ active, onNavigate }: { active: TabId; onNavigate: (tab: TabId) => void }) => (
+const MerchantBottomNav = ({ active, onNavigate, unreadMessages = 0 }: { active: TabId; onNavigate: (tab: TabId) => void; unreadMessages?: number }) => (
   <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-primary/20 bg-primary shadow-[0_-4px_20px_-4px_hsl(var(--primary)/0.3)]">
     <div className="flex items-center justify-around py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
       {merchantTabs.map((tab) => {
@@ -61,7 +61,12 @@ const MerchantBottomNav = ({ active, onNavigate }: { active: TabId; onNavigate: 
             className="group relative flex flex-col items-center gap-0.5 px-4 py-1.5 transition-all"
           >
             {isActive && <span className="absolute -top-1.5 h-1 w-6 rounded-full bg-primary-foreground" />}
-            <Icon className={`h-5 w-5 transition-all ${isActive ? "text-primary-foreground scale-110" : "text-primary-foreground/60 group-hover:text-primary-foreground/90"}`} />
+            <div className="relative">
+              <Icon className={`h-5 w-5 transition-all ${isActive ? "text-primary-foreground scale-110" : "text-primary-foreground/60 group-hover:text-primary-foreground/90"}`} />
+              {tab.id === "messages" && unreadMessages > 0 && (
+                <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive text-[9px] font-bold text-destructive-foreground px-1">{unreadMessages}</span>
+              )}
+            </div>
             <span className={`text-[10px] font-medium transition-colors ${isActive ? "text-primary-foreground" : "text-primary-foreground/60"}`}>{tab.label}</span>
           </button>
         );
@@ -348,6 +353,7 @@ interface MerchantMessage {
   message: string;
   status: string;
   created_at: string;
+  merchant_unread: boolean;
 }
 
 interface MerchantReply {
@@ -380,7 +386,7 @@ const MerchantMessagesTab = ({ restaurantId }: { restaurantId: string }) => {
   const fetchMessages = async () => {
     const { data } = await supabase
       .from("support_messages" as any)
-      .select("id, subject, message, status, created_at")
+      .select("id, subject, message, status, created_at, merchant_unread")
       .eq("restaurant_id", restaurantId)
       .order("created_at", { ascending: false });
     setMessages((data as unknown as MerchantMessage[]) ?? []);
@@ -389,6 +395,11 @@ const MerchantMessagesTab = ({ restaurantId }: { restaurantId: string }) => {
   const openConversation = async (msg: MerchantMessage) => {
     setSelected(msg);
     setReplyText("");
+    // Mark as read for merchant
+    if (msg.merchant_unread) {
+      await supabase.from("support_messages" as any).update({ merchant_unread: false }).eq("id", msg.id);
+      setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, merchant_unread: false } : m));
+    }
     const { data } = await supabase
       .from("support_replies" as any)
       .select("id, sender_role, content, created_at")
@@ -405,6 +416,8 @@ const MerchantMessagesTab = ({ restaurantId }: { restaurantId: string }) => {
       { message_id: selected.id, sender_role: "merchant", sender_id: user.id, content: replyText.trim() },
     ]);
     if (error) { toast.error("Erreur lors de l'envoi"); setSending(false); return; }
+    // Flag admin_unread
+    await supabase.from("support_messages" as any).update({ admin_unread: true }).eq("id", selected.id);
     setReplyText("");
     setSending(false);
     openConversation(selected);
@@ -475,9 +488,10 @@ const MerchantMessagesTab = ({ restaurantId }: { restaurantId: string }) => {
         <p className="text-center text-sm text-muted-foreground mt-8">Aucun message envoyé</p>
       ) : (
         messages.map((m) => (
-          <div key={m.id} className="rounded-xl bg-card p-4 shadow-sm cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => openConversation(m)}>
+          <div key={m.id} className={`rounded-xl bg-card p-4 shadow-sm cursor-pointer hover:bg-muted/50 transition-colors ${m.merchant_unread ? "border border-primary/50 bg-primary/5" : ""}`} onClick={() => openConversation(m)}>
             <div className="flex items-center gap-2 flex-wrap">
               <Badge variant="outline" className="text-[10px]">{SUBJECT_LABELS[m.subject] ?? m.subject}</Badge>
+              {m.merchant_unread && <Badge className="text-[10px]">Nouveau</Badge>}
               <Badge variant={m.status === "pending" ? "default" : m.status === "read" ? "secondary" : "outline"} className="text-[10px]">
                 {m.status === "pending" ? "En attente" : m.status === "read" ? "Lu" : "Résolu"}
               </Badge>
@@ -498,6 +512,7 @@ const Dashboard = () => {
   const [reservations, setReservations] = useState<ReservationData[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
+  const [merchantUnreadCount, setMerchantUnreadCount] = useState(0);
 
   const now = new Date();
   const [currentMonth, setCurrentMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
@@ -521,6 +536,14 @@ const Dashboard = () => {
     const rest = restList?.[0] ?? null;
     if (!rest) { navigate("/merchant-onboarding"); return; }
     setRestaurant(rest);
+
+    // Fetch unread messages count for merchant
+    const { count } = await supabase
+      .from("support_messages" as any)
+      .select("id", { count: "exact", head: true })
+      .eq("restaurant_id", rest.id)
+      .eq("merchant_unread", true);
+    setMerchantUnreadCount(count ?? 0);
 
     const { data: res } = await supabase
       .from("reservations")
@@ -687,7 +710,7 @@ const Dashboard = () => {
 
       {activeTab === "stats" && <StatsTab reservations={reservations} />}
 
-      <MerchantBottomNav active={activeTab} onNavigate={setActiveTab} />
+      <MerchantBottomNav active={activeTab} onNavigate={setActiveTab} unreadMessages={merchantUnreadCount} />
     </div>
   );
 };
