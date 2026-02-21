@@ -1,41 +1,39 @@
 
 
-# Correction du geocodage pour "Aam hbib" (36 rue Lecourbe)
+# Correction du badge "Nouveau" qui reste chez le commerçant
 
-## Probleme
+## Problème
 
-Le restaurant "Aam hbib" n'apparait pas sur la carte car ses coordonnees (`latitude`, `longitude`) sont `null` en base de donnees. La carte filtre les offres sans coordonnees et les ignore.
+Le commerçant ne peut pas mettre à jour le flag `merchant_unread` car la table `support_messages` n'a **aucune politique RLS pour UPDATE côté commerçant**. Seuls les admins ont le droit de modifier les messages. L'appel `update({ merchant_unread: false })` échoue silencieusement, et le badge "1" reste affiché en permanence.
 
-**Cause racine** : le champ `address` contient `"36 rue lecourbe, 75015 Paris"` alors que `postal_code` et `city` sont deja remplis separement. La fonction de geocodage construit donc une adresse redondante (`"36 rue lecourbe, 75015 Paris, 75015 Paris"`) qui echoue sur Nominatim.
+## Correction
 
-## Corrections prevues
+### Migration SQL
 
-### 1. Migration SQL : corriger l'adresse
-
-Nettoyer le champ `address` pour ne garder que la rue. Le code postal et la ville restent dans leurs champs respectifs.
+Ajouter une politique RLS permettant aux propriétaires de restaurants de mettre à jour les messages liés à leur restaurant :
 
 ```sql
-UPDATE restaurants
-SET address = '36 Rue Lecourbe'
-WHERE id = 'fc7cc11c-0587-47bc-8378-e6a9b77c0ee8';
+CREATE POLICY "Owners can update own messages"
+ON public.support_messages
+FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1 FROM restaurants
+    WHERE restaurants.id = support_messages.restaurant_id
+    AND restaurants.owner_id = auth.uid()
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM restaurants
+    WHERE restaurants.id = support_messages.restaurant_id
+    AND restaurants.owner_id = auth.uid()
+  )
+);
 ```
 
-### 2. Appeler la fonction de geocodage
-
-Invoquer la fonction backend `geocode-restaurants` pour qu'elle calcule les coordonnees GPS du restaurant a partir de l'adresse corrigee. Cela remplira les champs `latitude` et `longitude`.
-
-### 3. Prevention : valider les adresses a la saisie
-
-Modifier le formulaire d'onboarding (`src/pages/MerchantOnboarding.tsx`) pour :
-- Rendre le champ `address` plus clair avec un placeholder explicite ("Numero et nom de rue uniquement")
-- S'assurer que les champs `postal_code` et `city` sont obligatoires
-- Empecher que l'adresse complete (avec code postal et ville) soit saisie dans le champ rue
-
-## Resume des fichiers
+Aucun changement de code nécessaire. Le code existant dans `Dashboard.tsx` est correct : il appelle bien `update({ merchant_unread: false })` puis `onUnreadChange()`. C'est uniquement la permission en base qui manquait.
 
 | Fichier | Action |
 |---|---|
-| Migration SQL | Corriger l'adresse du restaurant |
-| Appel edge function | Relancer le geocodage |
-| `src/pages/MerchantOnboarding.tsx` | Ameliorer les indications du formulaire d'adresse |
-
+| Migration SQL | Ajouter la politique RLS "Owners can update own messages" |
