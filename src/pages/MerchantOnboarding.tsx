@@ -99,9 +99,8 @@ const MerchantOnboarding = () => {
 
       await supabase.from("profiles").update({ role: "merchant" }).eq("user_id", user.id);
 
-      const fullAddress = `${address.trim()}, ${postalCode.trim()} ${city.trim()}`;
       const { data: newRest, error } = await supabase.from("restaurants").insert({
-        owner_id: user.id, name: name.trim(), address: fullAddress,
+        owner_id: user.id, name: name.trim(), address: address.trim(),
         postal_code: postalCode.trim(), city: city.trim(),
         business_id: businessId.trim() || null, phone: phone.trim() || null,
         category, description: description.trim() || null, image_url: imageUrl,
@@ -204,7 +203,8 @@ const MerchantOnboarding = () => {
             </div>
             <div className="relative">
               <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input type="text" placeholder="Adresse (n° et rue) *" value={address} onChange={(e) => { setAddress(e.target.value); setGeoVerified(null); }} className={inputClass} />
+              <input type="text" placeholder="N° et nom de rue uniquement *" value={address} onChange={(e) => { setAddress(e.target.value); setGeoVerified(null); }} className={inputClass} />
+              <p className="mt-1 text-[11px] text-muted-foreground">Ex : 36 Rue Lecourbe (sans code postal ni ville)</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="relative">
