@@ -1,39 +1,62 @@
 
 
-# Correction du badge "Nouveau" qui reste chez le commerçant
+# Correction de l'affichage trop large sur mobile (Capacitor iOS/Android)
 
-## Problème
+## Problemes identifies
 
-Le commerçant ne peut pas mettre à jour le flag `merchant_unread` car la table `support_messages` n'a **aucune politique RLS pour UPDATE côté commerçant**. Seuls les admins ont le droit de modifier les messages. L'appel `update({ merchant_unread: false })` échoue silencieusement, et le badge "1" reste affiché en permanence.
+1. **`index.html`** : La balise viewport ne contient pas `viewport-fit=cover`, indispensable pour que le WebView Capacitor utilise tout l'ecran sur iOS et Android.
 
-## Correction
+2. **`src/App.css`** : Le fichier contient des styles par defaut de Vite qui posent probleme :
+   - `#root { max-width: 1280px; padding: 2rem; }` ajoute un padding de 2rem sur tous les cotes et limite la largeur, ce qui cree un debordement horizontal sur petit ecran.
+   - Ce fichier est un vestige du template Vite initial et n'est plus utile.
 
-### Migration SQL
+3. **`src/index.css`** : Aucun style pour gerer les "safe areas" iOS (encoche, barre d'accueil) et les marges de securite Android.
 
-Ajouter une politique RLS permettant aux propriétaires de restaurants de mettre à jour les messages liés à leur restaurant :
+## Corrections prevues
 
-```sql
-CREATE POLICY "Owners can update own messages"
-ON public.support_messages
-FOR UPDATE
-USING (
-  EXISTS (
-    SELECT 1 FROM restaurants
-    WHERE restaurants.id = support_messages.restaurant_id
-    AND restaurants.owner_id = auth.uid()
-  )
-)
-WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM restaurants
-    WHERE restaurants.id = support_messages.restaurant_id
-    AND restaurants.owner_id = auth.uid()
-  )
-);
+### 1. Fichier `index.html`
+
+Ajouter `viewport-fit=cover` a la balise viewport :
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 ```
 
-Aucun changement de code nécessaire. Le code existant dans `Dashboard.tsx` est correct : il appelle bien `update({ merchant_unread: false })` puis `onUnreadChange()`. C'est uniquement la permission en base qui manquait.
+### 2. Fichier `src/App.css`
 
-| Fichier | Action |
+Supprimer le contenu inutile (styles par defaut Vite) et ne garder qu'un reset propre :
+
+```css
+#root {
+  min-height: 100dvh;
+  width: 100%;
+}
+```
+
+Cela supprime le `max-width: 1280px` et le `padding: 2rem` qui causent le debordement.
+
+### 3. Fichier `src/index.css`
+
+Ajouter les styles de safe areas sur le body pour gerer l'encoche et la barre d'accueil sur iOS, et les marges systeme sur Android :
+
+```css
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+```
+
+### 4. Fichier `src/components/BottomNav.tsx`
+
+Ce composant gere deja `env(safe-area-inset-bottom)` dans son padding. Aucun changement necessaire.
+
+## Resume
+
+| Fichier | Modification |
 |---|---|
-| Migration SQL | Ajouter la politique RLS "Owners can update own messages" |
+| `index.html` | Ajouter `viewport-fit=cover` a la balise viewport |
+| `src/App.css` | Supprimer les styles Vite par defaut, remplacer par un reset minimal |
+| `src/index.css` | Ajouter padding safe-area sur le body |
+
+Ces 3 modifications garantissent que l'app s'adapte a tous les ecrans mobiles, que ce soit sur iPhone ou Android, avec ou sans encoche.
