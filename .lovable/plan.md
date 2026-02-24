@@ -1,35 +1,36 @@
 
 
-# Correction : retour dans l'app apres OAuth (Capacitor)
+# Correction OAuth Capacitor : redirect_uri autorisé + retour dans l'app
 
-## Le probleme actuel
+## Diagnostic
 
-Apres avoir clique sur "Continuer avec Google/Apple", voici ce qui se passe :
+Le proxy OAuth n'accepte que les `redirect_uri` sur le domaine `*.lovable.app`. Or, dans Capacitor, `window.location.origin` vaut `*.lovableproject.com`, ce qui provoque l'erreur "redirection Uri is not allowed" avant meme d'arriver sur Google.
 
-1. Le WebView de l'app navigue vers `lovable.app/~oauth/initiate` (correct, pas de 404)
-2. L'utilisateur se connecte sur Google/Apple (correct)
-3. Le proxy OAuth redirige vers `redirect_uri` qui est `lovable.app` (le probleme !)
-4. L'utilisateur se retrouve connecte **sur le site web** dans le navigateur, pas dans l'app
-
-## La solution
-
-Changer le `redirect_uri` pour qu'il pointe vers le serveur du WebView Capacitor (`lovableproject.com`). Ainsi, apres l'authentification, le proxy OAuth redirigera l'utilisateur **dans l'app** avec le token.
+## Solution : flux en 2 etapes
 
 ```text
-Flux actuel (KO) :
-  App -> lovable.app/~oauth/initiate -> Google -> lovable.app (navigateur)
-  L'utilisateur reste sur le navigateur, pas dans l'app
+1. App Capacitor (lovableproject.com)
+   -> Navigue vers lovable.app/~oauth/initiate
+      avec redirect_uri = lovable.app/auth  (domaine autorise)
 
-Flux corrige :
-  App -> lovable.app/~oauth/initiate -> Google -> lovableproject.com (WebView)
-  L'utilisateur revient dans l'app avec le token
+2. OAuth se fait (Google/Apple)
+   -> Retour sur lovable.app/auth#access_token=...&refresh_token=...
+
+3. Le code AuthPage sur lovable.app detecte les tokens dans le hash
+   -> supabase.auth.setSession() les enregistre
+   -> L'utilisateur est connecte sur lovable.app
+   -> Comme le WebView Capacitor charge lovable.app, la session est active
+
+4. Redirection vers /home dans l'app
 ```
+
+Le point cle : le `redirect_uri` doit pointer vers `LOVABLE_PREVIEW_ORIGIN` (le seul domaine autorise), pas vers `window.location.origin`.
 
 ## Modification
 
 ### Fichier : `src/pages/AuthPage.tsx`
 
-Modifier la fonction `handleOAuth` pour utiliser l'URL du serveur Capacitor comme `redirect_uri` :
+Modifier la fonction `handleOAuth` :
 
 ```typescript
 const handleOAuth = async (provider: "google" | "apple") => {
@@ -37,9 +38,8 @@ const handleOAuth = async (provider: "google" | "apple") => {
   if (isCapacitor) {
     const params = new URLSearchParams({
       provider,
-      redirect_uri: window.location.origin, // Pointe vers lovableproject.com (le WebView)
+      redirect_uri: LOVABLE_PREVIEW_ORIGIN,  // Domaine autorise par le proxy
     });
-    // Naviguer vers le proxy OAuth sur lovable.app (ou il existe)
     window.location.href = `${LOVABLE_PREVIEW_ORIGIN}/~oauth/initiate?${params.toString()}`;
   } else {
     const { error } = await lovable.auth.signInWithOAuth(provider, {
@@ -50,15 +50,15 @@ const handleOAuth = async (provider: "google" | "apple") => {
 };
 ```
 
-Le changement cle : `redirect_uri` passe de `LOVABLE_PREVIEW_ORIGIN` (lovable.app) a `window.location.origin` (lovableproject.com, l'URL du WebView Capacitor).
+Le changement : `redirect_uri` passe de `window.location.origin` (lovableproject.com, refuse) a `LOVABLE_PREVIEW_ORIGIN` (lovable.app, autorise).
 
-L'initiation OAuth continue de pointer vers `LOVABLE_PREVIEW_ORIGIN` (la ou le proxy existe), mais le retour apres authentification se fait vers l'app.
+Apres l'authentification, l'utilisateur atterrira sur `lovable.app` avec la session active. Le WebView Capacitor charge aussi depuis ce serveur, donc la session sera detectee par le listener `onAuthStateChange` et `visibilitychange` deja en place.
 
 ## Resume
 
 | Fichier | Modification |
 |---|---|
-| `src/pages/AuthPage.tsx` | Changer `redirect_uri` de `LOVABLE_PREVIEW_ORIGIN` a `window.location.origin` dans le bloc Capacitor |
+| `src/pages/AuthPage.tsx` | Changer `redirect_uri` de `window.location.origin` a `LOVABLE_PREVIEW_ORIGIN` dans le bloc Capacitor |
 
 ## Apres ces modifications
 
