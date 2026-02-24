@@ -1,42 +1,47 @@
 
 
-# Correction de l'erreur 404 OAuth dans Capacitor
+# Correction : retour dans l'app apres OAuth (Capacitor)
 
-## Diagnostic
+## Le probleme actuel
 
-En lisant le code source de la bibliotheque `@lovable.dev/cloud-auth-js`, voici ce qui se passe exactement :
+Apres avoir clique sur "Continuer avec Google/Apple", voici ce qui se passe :
 
-1. La bibliotheque detecte si l'app est dans un iframe ou non
-2. Dans Capacitor, l'app n'est **pas** dans un iframe
-3. La bibliotheque execute : `window.location.href = "/~oauth/initiate?provider=google&..."`
-4. Cette URL relative se resout sur le domaine du WebView Capacitor : `https://69f86be0-14ac-4dad-8125-76b57ac533c8.lovableproject.com/~oauth/initiate`
-5. Le proxy OAuth n'existe que sur le domaine `*.lovable.app`, pas sur `*.lovableproject.com`
-6. Resultat : **404**
+1. Le WebView de l'app navigue vers `lovable.app/~oauth/initiate` (correct, pas de 404)
+2. L'utilisateur se connecte sur Google/Apple (correct)
+3. Le proxy OAuth redirige vers `redirect_uri` qui est `lovable.app` (le probleme !)
+4. L'utilisateur se retrouve connecte **sur le site web** dans le navigateur, pas dans l'app
 
-## Solution
+## La solution
 
-Dans `AuthPage.tsx`, detecter l'environnement Capacitor et contourner la bibliotheque en construisant manuellement l'URL OAuth avec le bon domaine (`*.lovable.app`).
+Changer le `redirect_uri` pour qu'il pointe vers le serveur du WebView Capacitor (`lovableproject.com`). Ainsi, apres l'authentification, le proxy OAuth redirigera l'utilisateur **dans l'app** avec le token.
+
+```text
+Flux actuel (KO) :
+  App -> lovable.app/~oauth/initiate -> Google -> lovable.app (navigateur)
+  L'utilisateur reste sur le navigateur, pas dans l'app
+
+Flux corrige :
+  App -> lovable.app/~oauth/initiate -> Google -> lovableproject.com (WebView)
+  L'utilisateur revient dans l'app avec le token
+```
+
+## Modification
 
 ### Fichier : `src/pages/AuthPage.tsx`
 
-Ajouter une constante et une fonction helper :
+Modifier la fonction `handleOAuth` pour utiliser l'URL du serveur Capacitor comme `redirect_uri` :
 
 ```typescript
-const LOVABLE_PREVIEW_ORIGIN = "https://id-preview--69f86be0-14ac-4dad-8125-76b57ac533c8.lovable.app";
-
 const handleOAuth = async (provider: "google" | "apple") => {
   const isCapacitor = !!(window as any).Capacitor;
-
   if (isCapacitor) {
-    // Construire l'URL du broker OAuth sur le bon domaine
     const params = new URLSearchParams({
       provider,
-      redirect_uri: LOVABLE_PREVIEW_ORIGIN,
+      redirect_uri: window.location.origin, // Pointe vers lovableproject.com (le WebView)
     });
-    // Naviguer vers le broker OAuth sur le domaine .lovable.app
+    // Naviguer vers le proxy OAuth sur lovable.app (ou il existe)
     window.location.href = `${LOVABLE_PREVIEW_ORIGIN}/~oauth/initiate?${params.toString()}`;
   } else {
-    // Sur le web, garder le comportement existant (popup/iframe)
     const { error } = await lovable.auth.signInWithOAuth(provider, {
       redirect_uri: window.location.origin,
     });
@@ -45,43 +50,15 @@ const handleOAuth = async (provider: "google" | "apple") => {
 };
 ```
 
-Mettre a jour les deux boutons Google et Apple pour appeler `handleOAuth("google")` et `handleOAuth("apple")` au lieu du code inline actuel.
+Le changement cle : `redirect_uri` passe de `LOVABLE_PREVIEW_ORIGIN` (lovable.app) a `window.location.origin` (lovableproject.com, l'URL du WebView Capacitor).
 
-Ajouter un `useEffect` pour rafraichir la session quand l'app revient au premier plan (apres que l'utilisateur s'est connecte dans Safari) :
+L'initiation OAuth continue de pointer vers `LOVABLE_PREVIEW_ORIGIN` (la ou le proxy existe), mais le retour apres authentification se fait vers l'app.
 
-```typescript
-useEffect(() => {
-  const handleVisibility = () => {
-    if (document.visibilityState === 'visible') {
-      supabase.auth.getSession();
-    }
-  };
-  document.addEventListener('visibilitychange', handleVisibility);
-  return () => document.removeEventListener('visibilitychange', handleVisibility);
-}, []);
-```
-
-```text
-Flux dans Capacitor (corrige) :
-  Bouton Google -> detecte Capacitor
-    -> window.location.href vers *.lovable.app/~oauth/initiate
-    -> Le proxy OAuth intercepte la requete (pas de 404)
-    -> Redirection vers Google
-    -> Utilisateur se connecte
-    -> Callback revient sur *.lovable.app
-    -> Session creee, redirect vers /home
-    -> useEffect detecte la session
-
-Flux web (inchange) :
-  Bouton Google -> lovable.auth.signInWithOAuth()
-    -> popup/iframe -> tokens -> session
-```
-
-## Detail technique
+## Resume
 
 | Fichier | Modification |
 |---|---|
-| `src/pages/AuthPage.tsx` | Ajouter `handleOAuth()` avec detection Capacitor, utiliser l'URL absolue `*.lovable.app` pour le broker OAuth, ajouter listener `visibilitychange` |
+| `src/pages/AuthPage.tsx` | Changer `redirect_uri` de `LOVABLE_PREVIEW_ORIGIN` a `window.location.origin` dans le bloc Capacitor |
 
 ## Apres ces modifications
 
