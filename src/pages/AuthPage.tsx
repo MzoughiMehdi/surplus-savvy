@@ -6,6 +6,8 @@ import { ArrowLeft, Mail, Lock, User, Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+const LOVABLE_PREVIEW_ORIGIN = "https://id-preview--69f86be0-14ac-4dad-8125-76b57ac533c8.lovable.app";
+
 type Mode = "login" | "signup" | "merchant-signup" | "forgot-password";
 
 const AuthPage = () => {
@@ -25,6 +27,17 @@ const AuthPage = () => {
   const searchParams = new URLSearchParams(window.location.search);
   const redirectParam = searchParams.get("redirect");
 
+  // Refresh session when app returns to foreground (Capacitor OAuth flow)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.getSession();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
   // Auto-redirect when OAuth session is detected
   useEffect(() => {
     if (!loading && !profileLoading && user && !hasRedirected.current) {
@@ -33,7 +46,6 @@ const AuthPage = () => {
           hasRedirected.current = true;
           navigate("/admin/settings", { replace: true });
         } else {
-          // Not admin — sign out so the real admin can log in
           signOut();
         }
         return;
@@ -44,6 +56,22 @@ const AuthPage = () => {
       navigate("/home", { replace: true });
     }
   }, [user, loading, profile, navigate, isAdmin, redirectParam, signOut]);
+
+  const handleOAuth = async (provider: "google" | "apple") => {
+    const isCapacitor = !!(window as any).Capacitor;
+    if (isCapacitor) {
+      const params = new URLSearchParams({
+        provider,
+        redirect_uri: LOVABLE_PREVIEW_ORIGIN,
+      });
+      window.location.href = `${LOVABLE_PREVIEW_ORIGIN}/~oauth/initiate?${params.toString()}`;
+    } else {
+      const { error } = await lovable.auth.signInWithOAuth(provider, {
+        redirect_uri: window.location.origin,
+      });
+      if (error) toast.error(`Erreur avec ${provider} : ` + error.message);
+    }
+  };
 
   const redirectByRole = async (userId: string, fallback: string) => {
     // Check if admin redirect requested
@@ -178,12 +206,7 @@ const AuthPage = () => {
         <div className="mb-6 space-y-3">
           <button
             type="button"
-            onClick={async () => {
-              const { error } = await lovable.auth.signInWithOAuth("google", {
-                redirect_uri: window.location.origin,
-              });
-              if (error) toast.error("Erreur avec Google : " + error.message);
-            }}
+            onClick={() => handleOAuth("google")}
             className="flex w-full items-center justify-center gap-3 rounded-xl border border-input bg-card py-3.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -196,12 +219,7 @@ const AuthPage = () => {
           </button>
           <button
             type="button"
-            onClick={async () => {
-              const { error } = await lovable.auth.signInWithOAuth("apple", {
-                redirect_uri: window.location.origin,
-              });
-              if (error) toast.error("Erreur avec Apple : " + error.message);
-            }}
+            onClick={() => handleOAuth("apple")}
             className="flex w-full items-center justify-center gap-3 rounded-xl border border-input bg-foreground py-3.5 text-sm font-medium text-background transition-colors hover:bg-foreground/90"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
