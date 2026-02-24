@@ -62,7 +62,7 @@ const AuthPage = () => {
     if (isCapacitor) {
       const params = new URLSearchParams({
         provider,
-        redirect_uri: LOVABLE_PREVIEW_ORIGIN,
+        redirect_uri: window.location.origin,
       });
       window.location.href = `${LOVABLE_PREVIEW_ORIGIN}/~oauth/initiate?${params.toString()}`;
     } else {
