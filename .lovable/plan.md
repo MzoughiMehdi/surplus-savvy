@@ -1,62 +1,70 @@
 
 
-# Correction de l'affichage trop large sur mobile (Capacitor iOS/Android)
+# Corrections pour que l'app fonctionne sur iOS/Android (Capacitor)
 
-## Problemes identifies
+## Probleme 1 : OAuth Google / Apple ne fonctionne pas dans Capacitor
 
-1. **`index.html`** : La balise viewport ne contient pas `viewport-fit=cover`, indispensable pour que le WebView Capacitor utilise tout l'ecran sur iOS et Android.
+Le WebView de Capacitor bloque les redirections OAuth classiques. Quand vous appuyez sur "Continuer avec Google" ou "Continuer avec Apple", le WebView intercepte la navigation et l'annule silencieusement.
 
-2. **`src/App.css`** : Le fichier contient des styles par defaut de Vite qui posent probleme :
-   - `#root { max-width: 1280px; padding: 2rem; }` ajoute un padding de 2rem sur tous les cotes et limite la largeur, ce qui cree un debordement horizontal sur petit ecran.
-   - Ce fichier est un vestige du template Vite initial et n'est plus utile.
+### Solution
 
-3. **`src/index.css`** : Aucun style pour gerer les "safe areas" iOS (encoche, barre d'accueil) et les marges de securite Android.
+Detecter si l'app tourne dans Capacitor (via `window.Capacitor`) et utiliser `supabase.auth.signInWithOAuth` avec `skipBrowserRedirect: true` pour obtenir l'URL OAuth, puis ouvrir cette URL dans une fenetre externe via `window.open`. Quand l'utilisateur revient dans l'app, la session sera automatiquement detectee par le listener `onAuthStateChange` deja present dans `useAuth`.
 
-## Corrections prevues
+### Modification : `src/pages/AuthPage.tsx`
 
-### 1. Fichier `index.html`
+- Ajouter une fonction helper `handleOAuthNative(provider)` qui :
+  1. Detecte Capacitor : `const isNative = !!(window as any).Capacitor?.isNativePlatform?.()`
+  2. Si natif : appelle `supabase.auth.signInWithOAuth({ provider, options: { skipBrowserRedirect: true, redirectTo: window.location.origin + '/home' } })` pour obtenir l'URL, puis ouvre avec `window.open(url, '_blank')`
+  3. Si web : continue d'utiliser `lovable.auth.signInWithOAuth()` comme actuellement
+- Remplacer les `onClick` des boutons Google et Apple pour utiliser cette nouvelle fonction
 
-Ajouter `viewport-fit=cover` a la balise viewport :
+```text
+Flux actuel (KO dans Capacitor) :
+  Bouton -> lovable.auth.signInWithOAuth -> redirection dans WebView -> BLOQUE
 
-```html
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+Nouveau flux :
+  Bouton -> detecter Capacitor ?
+    OUI -> supabase.auth.signInWithOAuth(skipBrowserRedirect) -> window.open(url) -> retour auto
+    NON -> lovable.auth.signInWithOAuth (inchange, web classique)
 ```
 
-### 2. Fichier `src/App.css`
+---
 
-Supprimer le contenu inutile (styles par defaut Vite) et ne garder qu'un reset propre :
+## Probleme 2 : Pages pas adaptees a la taille de l'ecran
+
+Les corrections `viewport-fit=cover` et safe areas sont deja en place. Mais certains composants peuvent forcer un debordement horizontal invisible.
+
+### Modification : `src/index.css`
+
+Ajouter `overflow-x: hidden` et `width: 100%` sur `html` et `body` pour empecher tout scroll horizontal parasite :
 
 ```css
-#root {
-  min-height: 100dvh;
+html {
+  overflow-x: hidden;
+  width: 100%;
+}
+
+body {
+  /* styles existants conserves */
+  overflow-x: hidden;
   width: 100%;
 }
 ```
 
-Cela supprime le `max-width: 1280px` et le `padding: 2rem` qui causent le debordement.
+---
 
-### 3. Fichier `src/index.css`
-
-Ajouter les styles de safe areas sur le body pour gerer l'encoche et la barre d'accueil sur iOS, et les marges systeme sur Android :
-
-```css
-body {
-  padding-top: env(safe-area-inset-top);
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
-}
-```
-
-### 4. Fichier `src/components/BottomNav.tsx`
-
-Ce composant gere deja `env(safe-area-inset-bottom)` dans son padding. Aucun changement necessaire.
-
-## Resume
+## Resume des modifications
 
 | Fichier | Modification |
 |---|---|
-| `index.html` | Ajouter `viewport-fit=cover` a la balise viewport |
-| `src/App.css` | Supprimer les styles Vite par defaut, remplacer par un reset minimal |
-| `src/index.css` | Ajouter padding safe-area sur le body |
+| `src/pages/AuthPage.tsx` | Detecter Capacitor et ouvrir OAuth via `window.open` au lieu d'une redirection WebView |
+| `src/index.css` | Ajouter `overflow-x: hidden` et `width: 100%` sur html/body |
 
-Ces 3 modifications garantissent que l'app s'adapte a tous les ecrans mobiles, que ce soit sur iPhone ou Android, avec ou sans encoche.
+## Apres ces modifications
+
+Pour voir les changements sur votre iPhone :
+1. Exporter vers GitHub et faire `git pull`
+2. `npm install`
+3. `npx cap sync`
+4. `npx cap run ios`
+
