@@ -1,44 +1,39 @@
 
 
-# Correction OAuth Capacitor : redirect_uri autorisé + retour dans l'app
+# OAuth Capacitor avec Deep Link : retour dans l'app
 
-## Diagnostic
+## Le probleme
 
-Le proxy OAuth n'accepte que les `redirect_uri` sur le domaine `*.lovable.app`. Or, dans Capacitor, `window.location.origin` vaut `*.lovableproject.com`, ce qui provoque l'erreur "redirection Uri is not allowed" avant meme d'arriver sur Google.
+La session OAuth se cree dans Safari (navigateur externe), mais le WebView Capacitor a son propre stockage isole. L'app ne "voit" jamais la session. Il faut un **deep link** pour ramener les tokens OAuth directement dans le WebView.
 
-## Solution : flux en 2 etapes
+## Ce qu'il faut faire
 
-```text
-1. App Capacitor (lovableproject.com)
-   -> Navigue vers lovable.app/~oauth/initiate
-      avec redirect_uri = lovable.app/auth  (domaine autorise)
+### Etape 1 : Configurer le deep link iOS dans Xcode (manuel, cote utilisateur)
 
-2. OAuth se fait (Google/Apple)
-   -> Retour sur lovable.app/auth#access_token=...&refresh_token=...
+Dans Xcode :
+- Target App -> Info -> URL Types -> +
+- Identifier : `com.mehdimzoughi.surplussavvy`
+- URL Schemes : `surplussavvy`
 
-3. Le code AuthPage sur lovable.app detecte les tokens dans le hash
-   -> supabase.auth.setSession() les enregistre
-   -> L'utilisateur est connecte sur lovable.app
-   -> Comme le WebView Capacitor charge lovable.app, la session est active
+Cela permet d'ouvrir l'app via `surplussavvy://auth/callback#access_token=...`
 
-4. Redirection vers /home dans l'app
-```
+### Etape 2 : Installer `@capacitor/app`
 
-Le point cle : le `redirect_uri` doit pointer vers `LOVABLE_PREVIEW_ORIGIN` (le seul domaine autorise), pas vers `window.location.origin`.
+Ajouter la dependance `@capacitor/app` au projet pour ecouter les deep links.
 
-## Modification
+### Etape 3 : Modifier `src/pages/AuthPage.tsx`
 
-### Fichier : `src/pages/AuthPage.tsx`
-
-Modifier la fonction `handleOAuth` :
+Changer `handleOAuth` pour utiliser le deep link comme `redirect_uri` :
 
 ```typescript
+const DEEP_LINK_CALLBACK = "surplussavvy://auth/callback";
+
 const handleOAuth = async (provider: "google" | "apple") => {
   const isCapacitor = !!(window as any).Capacitor;
   if (isCapacitor) {
     const params = new URLSearchParams({
       provider,
-      redirect_uri: LOVABLE_PREVIEW_ORIGIN,  // Domaine autorise par le proxy
+      redirect_uri: DEEP_LINK_CALLBACK,
     });
     window.location.href = `${LOVABLE_PREVIEW_ORIGIN}/~oauth/initiate?${params.toString()}`;
   } else {
@@ -50,19 +45,72 @@ const handleOAuth = async (provider: "google" | "apple") => {
 };
 ```
 
-Le changement : `redirect_uri` passe de `window.location.origin` (lovableproject.com, refuse) a `LOVABLE_PREVIEW_ORIGIN` (lovable.app, autorise).
+### Etape 4 : Ecouter le deep link dans `src/main.tsx`
 
-Apres l'authentification, l'utilisateur atterrira sur `lovable.app` avec la session active. Le WebView Capacitor charge aussi depuis ce serveur, donc la session sera detectee par le listener `onAuthStateChange` et `visibilitychange` deja en place.
+Ajouter un listener global qui intercepte le retour du deep link et injecte les tokens dans la session :
 
-## Resume
+```typescript
+import { App as CapApp } from '@capacitor/app';
+import { supabase } from '@/integrations/supabase/client';
+
+CapApp.addListener('appUrlOpen', async ({ url }) => {
+  // url = surplussavvy://auth/callback#access_token=...&refresh_token=...
+  const hashIndex = url.indexOf('#');
+  if (hashIndex === -1) return;
+
+  const hash = url.substring(hashIndex + 1);
+  const params = new URLSearchParams(hash);
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+
+  if (accessToken && refreshToken) {
+    await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+    // onAuthStateChange dans useAuth detectera la session
+    // et AuthPage redirigera vers /home
+  }
+});
+```
+
+### Etape 5 : Supprimer le listener `visibilitychange` devenu inutile
+
+Le `useEffect` qui ecoute `visibilitychange` dans AuthPage n'est plus necessaire car les tokens arrivent directement via le deep link.
+
+## Flux complet apres modification
+
+```text
+1. App Capacitor -> Bouton Google
+2. -> window.location.href vers lovable.app/~oauth/initiate
+      avec redirect_uri = surplussavvy://auth/callback
+3. -> Safari s'ouvre, Google login
+4. -> Callback vers surplussavvy://auth/callback#access_token=...
+5. -> iOS intercepte le scheme "surplussavvy://"
+6. -> Ouvre l'app, declenche l'event "appUrlOpen"
+7. -> Le listener extrait les tokens du hash
+8. -> supabase.auth.setSession() enregistre la session dans le WebView
+9. -> onAuthStateChange se declenche, l'utilisateur est connecte
+10. -> Redirection vers /home
+```
+
+## Resume des fichiers
 
 | Fichier | Modification |
 |---|---|
-| `src/pages/AuthPage.tsx` | Changer `redirect_uri` de `window.location.origin` a `LOVABLE_PREVIEW_ORIGIN` dans le bloc Capacitor |
+| `package.json` | Ajouter `@capacitor/app` comme dependance |
+| `src/main.tsx` | Ajouter le listener `appUrlOpen` pour intercepter le deep link et injecter les tokens |
+| `src/pages/AuthPage.tsx` | Changer `redirect_uri` en `surplussavvy://auth/callback`, supprimer le listener `visibilitychange` |
 
 ## Apres ces modifications
 
 1. Exporter vers GitHub et faire `git pull`
-2. `npx cap sync`
-3. `npx cap run ios`
+2. `npm install` (pour installer `@capacitor/app`)
+3. Configurer le URL Scheme dans Xcode (si pas deja fait)
+4. `npx cap sync`
+5. `npx cap run ios`
+
+## Note importante
+
+Si le proxy OAuth sur `lovable.app` refuse le `redirect_uri` avec un scheme custom (`surplussavvy://`), il faudra alors passer par une page intermediaire : le proxy redirige vers `lovable.app/auth-bridge#tokens`, et cette page redirige elle-meme vers `surplussavvy://auth/callback#tokens`. Cette approche sera a tester en premier lieu avec le scheme direct.
 
