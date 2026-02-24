@@ -179,20 +179,10 @@ const AuthPage = () => {
           <button
             type="button"
             onClick={async () => {
-              const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
-              if (isNative) {
-                const { data, error } = await supabase.auth.signInWithOAuth({
-                  provider: "google",
-                  options: { skipBrowserRedirect: true, redirectTo: window.location.origin + "/home" },
-                });
-                if (error) { toast.error("Erreur avec Google : " + error.message); return; }
-                if (data?.url) window.open(data.url, "_blank");
-              } else {
-                const { error } = await lovable.auth.signInWithOAuth("google", {
-                  redirect_uri: window.location.origin + "/home",
-                });
-                if (error) toast.error("Erreur avec Google : " + error.message);
-              }
+              const { error } = await lovable.auth.signInWithOAuth("google", {
+                redirect_uri: window.location.origin + "/home",
+              });
+              if (error) toast.error("Erreur avec Google : " + error.message);
             }}
             className="flex w-full items-center justify-center gap-3 rounded-xl border border-input bg-card py-3.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
           >
@@ -207,20 +197,10 @@ const AuthPage = () => {
           <button
             type="button"
             onClick={async () => {
-              const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
-              if (isNative) {
-                const { data, error } = await supabase.auth.signInWithOAuth({
-                  provider: "apple",
-                  options: { skipBrowserRedirect: true, redirectTo: window.location.origin + "/home" },
-                });
-                if (error) { toast.error("Erreur avec Apple : " + error.message); return; }
-                if (data?.url) window.open(data.url, "_blank");
-              } else {
-                const { error } = await lovable.auth.signInWithOAuth("apple", {
-                  redirect_uri: window.location.origin + "/home",
-                });
-                if (error) toast.error("Erreur avec Apple : " + error.message);
-              }
+              const { error } = await lovable.auth.signInWithOAuth("apple", {
+                redirect_uri: window.location.origin + "/home",
+              });
+              if (error) toast.error("Erreur avec Apple : " + error.message);
             }}
             className="flex w-full items-center justify-center gap-3 rounded-xl border border-input bg-foreground py-3.5 text-sm font-medium text-background transition-colors hover:bg-foreground/90"
           >
