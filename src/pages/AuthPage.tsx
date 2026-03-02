@@ -7,7 +7,6 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 const LOVABLE_PREVIEW_ORIGIN = "https://id-preview--69f86be0-14ac-4dad-8125-76b57ac533c8.lovable.app";
-const DEEP_LINK_CALLBACK = "surplussavvy://auth/callback";
 
 type Mode = "login" | "signup" | "merchant-signup" | "forgot-password";
 
@@ -28,7 +27,16 @@ const AuthPage = () => {
   const searchParams = new URLSearchParams(window.location.search);
   const redirectParam = searchParams.get("redirect");
 
-  // visibilitychange listener removed — deep link handles session injection
+  // Refresh session when app returns to foreground (Capacitor OAuth flow)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.getSession();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
 
   // Auto-redirect when OAuth session is detected
   useEffect(() => {
@@ -54,7 +62,7 @@ const AuthPage = () => {
     if (isCapacitor) {
       const params = new URLSearchParams({
         provider,
-        redirect_uri: DEEP_LINK_CALLBACK,
+        redirect_uri: LOVABLE_PREVIEW_ORIGIN,
       });
       window.location.href = `${LOVABLE_PREVIEW_ORIGIN}/~oauth/initiate?${params.toString()}`;
     } else {
